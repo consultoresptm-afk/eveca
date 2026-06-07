@@ -16,27 +16,15 @@ export default function Dashboard() {
     effluentsCount: 0,
     compostCount: 0,
     greenCount: 0,
-    lastPH: 7.2,
+    lastPH: '-' as string | number,
     totalOilRecovered: 0,
   });
 
   const [recentLogs, setRecentLogs] = useState<any[]>([]);
-
-  // Fallback Charts Data
-  const sampleEffluentTrends = [
-    { name: 'Ene', ph: 7.1, recovered: 450, oil_level: 2.3 },
-    { name: 'Feb', ph: 7.4, recovered: 520, oil_level: 2.1 },
-    { name: 'Mar', ph: 6.9, recovered: 610, oil_level: 1.8 },
-    { name: 'Abr', ph: 7.2, recovered: 580, oil_level: 2.4 },
-    { name: 'May', ph: 7.3, recovered: 710, oil_level: 2.0 },
-    { name: 'Jun', ph: 7.1, recovered: 800, oil_level: 1.5 },
-  ];
-
-  const sampleCompostDistribution = [
-    { name: 'Compost maduro', value: 3400, color: '#11c46e' },
-    { name: 'Compost en maduración', value: 1800, color: '#00c5dc' },
-    { name: 'Materia prima nueva', value: 2900, color: '#f8c851' },
-  ];
+  const [effluentChartData, setEffluentChartData] = useState<any[]>([]);
+  const [compostChartData, setCompostChartData] = useState<any[]>([]);
+  const [hasEffluentData, setHasEffluentData] = useState(false);
+  const [hasCompostData, setHasCompostData] = useState(false);
 
   useEffect(() => {
     async function loadStats() {
@@ -61,12 +49,13 @@ export default function Dashboard() {
           .order('date', { ascending: false });
 
         let totalOil = 0;
-        let lastLoggedPH = 7.2;
+        let lastLoggedPH: string | number = '-';
 
         if (oilData && oilData.length > 0) {
           totalOil = oilData.reduce((acc, curr) => acc + (Number(curr.recovered_oil) || 0), 0);
-          if (oilData[0].ph) {
-            lastLoggedPH = Number(oilData[0].ph);
+          const firstWithPH = oilData.find(item => item.ph !== null && item.ph !== undefined);
+          if (firstWithPH) {
+            lastLoggedPH = Number(firstWithPH.ph);
           }
         }
 
@@ -77,6 +66,84 @@ export default function Dashboard() {
           lastPH: lastLoggedPH,
           totalOilRecovered: totalOil,
         });
+
+        // Pull effluents for trend chart
+        const { data: effluentsData } = await supabase
+          .from('effluents_logs')
+          .select('date, ph, recovered_oil, oil_level')
+          .order('date', { ascending: true });
+
+        if (effluentsData && effluentsData.length > 0) {
+          const grouped: Record<string, { name: string, ph: number, recovered: number, count: number }> = {};
+          const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+          effluentsData.forEach(item => {
+            const d = new Date(item.date);
+            const month = monthNames[d.getMonth()];
+            if (!grouped[month]) {
+              grouped[month] = { name: month, ph: 0, recovered: 0, count: 0 };
+            }
+            grouped[month].ph += Number(item.ph) || 0;
+            grouped[month].recovered += Number(item.recovered_oil) || 0;
+            grouped[month].count += 1;
+          });
+
+          const formattedEffluents = Object.values(grouped).map(g => ({
+            name: g.name,
+            ph: Number((g.ph / g.count).toFixed(1)),
+            recovered: Number(g.recovered.toFixed(1))
+          }));
+
+          setEffluentChartData(formattedEffluents);
+          setHasEffluentData(formattedEffluents.length > 0);
+        } else {
+          setEffluentChartData([]);
+          setHasEffluentData(false);
+        }
+
+        // Pull compost for distribution chart
+        const { data: compostData } = await supabase
+          .from('compost_logs')
+          .select('date, raw_material_in, temperature, humidity')
+          .order('date', { ascending: true });
+
+        if (compostData && compostData.length > 0) {
+          let highTempMat = 0;
+          let midTempMat = 0;
+          let rawMat = 0;
+
+          compostData.forEach(item => {
+            const t = Number(item.temperature) || 0;
+            const m = Number(item.raw_material_in) || 0;
+            if (t >= 55) {
+              highTempMat += m;
+            } else if (t >= 40) {
+              midTempMat += m;
+            } else {
+              rawMat += m;
+            }
+          });
+
+          const formattedCompost = [
+            { name: 'Fase Termofílica (>55°C)', value: highTempMat, color: '#ff4d4d' },
+            { name: 'Fase Mesofílica (40-55°C)', value: midTempMat, color: '#00c5dc' },
+            { name: 'Materia prima / Maduración', value: rawMat, color: '#11c46e' },
+          ].filter(item => item.value > 0);
+
+          if (formattedCompost.length > 0) {
+            setCompostChartData(formattedCompost);
+            setHasCompostData(true);
+          } else {
+            const totalKg = compostData.reduce((acc, curr) => acc + (Number(curr.raw_material_in) || 0), 0);
+            setCompostChartData([
+              { name: 'Materia orgánica ingresada', value: totalKg, color: '#11c46e' }
+            ]);
+            setHasCompostData(totalKg > 0);
+          }
+        } else {
+          setCompostChartData([]);
+          setHasCompostData(false);
+        }
 
         // Pull recent entries
         const tempLogs: any[] = [];
@@ -190,8 +257,10 @@ export default function Dashboard() {
             </div>
           </div>
           <div>
-            <h3 className="text-3xl font-extrabold text-[#f8c851]">{stats.lastPH || '7.2'}</h3>
-            <p className="text-xs text-slate-400 mt-1">Acidez neutra promedio</p>
+            <h3 className="text-3xl font-extrabold text-[#f8c851]">{stats.lastPH}</h3>
+            <p className="text-xs text-slate-400 mt-1">
+              {stats.lastPH === '-' ? 'Sin registros' : 'Acidez del último tanque'}
+            </p>
           </div>
         </div>
       </div>
@@ -204,32 +273,49 @@ export default function Dashboard() {
               <h3 className="text-lg font-bold text-white">Consolidado Histórico de Efluentes</h3>
               <p className="text-slate-400 text-xs mt-0.5">Control de pH y volúmenes de aceites mitigados</p>
             </div>
-            <span className="px-2.5 py-1 bg-slate-800 text-slate-400 rounded-full text-[10px] font-bold uppercase">Proyección Estimada / Histórico</span>
+            <span className="px-2.5 py-1 bg-slate-800 text-slate-400 rounded-full text-[10px] font-bold uppercase">
+              {hasEffluentData ? 'Tiempo Real / Histórico' : 'Sin Datos en la BD'}
+            </span>
           </div>
 
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={sampleEffluentTrends} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorPH" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00c5dc" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#00c5dc" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorRec" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#11c46e" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#11c46e" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
-                <YAxis stroke="#6b7280" fontSize={11} />
-                <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }} />
-                <Legend iconType="circle" />
-                <Area type="monotone" name="Promedio pH" dataKey="ph" stroke="#00c5dc" strokeWidth={2} fillOpacity={1} fill="url(#colorPH)" />
-                <Area type="monotone" name="Aceite Recuperado (L)" dataKey="recovered" stroke="#11c46e" strokeWidth={2} fillOpacity={1} fill="url(#colorRec)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          {!hasEffluentData ? (
+            <div className="h-[300px] w-full flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-950/20 p-6 text-center">
+              <div className="p-3 bg-blue-500/10 text-blue-400 rounded-full mb-3">
+                <Droplet className="w-8 h-8 animate-pulse" />
+              </div>
+              <h4 className="text-white font-bold text-sm">Histórico de Efluentes Vacío</h4>
+              <p className="text-slate-400 text-xs max-w-sm mt-1">
+                No se han registrado operaciones de tanques australianos todavía. Agregue su primer reporte técnico en el módulo de efluentes para activar este gráfico.
+              </p>
+              <Link to="/efluentes" className="mt-4 px-4 py-2 bg-[#00c5dc] hover:bg-[#00a9bd] text-slate-950 rounded-lg text-xs font-bold font-sans transition-all">
+                Registrar Primer Efluente
+              </Link>
+            </div>
+          ) : (
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={effluentChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorPH" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00c5dc" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#00c5dc" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorRec" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#11c46e" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#11c46e" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
+                  <YAxis stroke="#6b7280" fontSize={11} />
+                  <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }} />
+                  <Legend iconType="circle" />
+                  <Area type="monotone" name="Promedio pH" dataKey="ph" stroke="#00c5dc" strokeWidth={2} fillOpacity={1} fill="url(#colorPH)" />
+                  <Area type="monotone" name="Aceite Recuperado (L)" dataKey="recovered" stroke="#11c46e" strokeWidth={2} fillOpacity={1} fill="url(#colorRec)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
         <div className="dash-card p-6 flex flex-col justify-between">
@@ -237,39 +323,56 @@ export default function Dashboard() {
             <h3 className="text-lg font-bold text-white mb-1">Materia Compost</h3>
             <p className="text-slate-400 text-xs mb-6">Distribución actual de masa y sustratos (kg)</p>
             
-            <div className="h-[200px] w-full flex justify-center items-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={sampleCompostDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {sampleCompostDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => `${value} kg`} contentStyle={{ backgroundColor: '#111827', borderColor: '#374151' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            {!hasCompostData ? (
+              <div className="h-[200px] w-full flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-950/20 p-4 text-center">
+                <div className="p-2.5 bg-[#11c46e]/10 text-[#11c46e] rounded-full mb-2">
+                  <Flame className="w-6 h-6 animate-pulse" />
+                </div>
+                <h4 className="text-white font-bold text-xs">Sin Registros de Compost</h4>
+                <p className="text-slate-400 text-[11px] max-w-xs mt-1">
+                  Una vez registre cargas de materia prima o controles de compostaje, verá la distribución térmica y de biomasa aquí.
+                </p>
+                <Link to="/compostaje" className="mt-3 px-3 py-1.5 bg-[#11c46e]/20 hover:bg-[#11c46e]/30 text-[#11c46e] rounded-lg text-[10px] font-bold font-sans transition-all">
+                  Registrar Compostaje
+                </Link>
+              </div>
+            ) : (
+              <div className="h-[200px] w-full flex justify-center items-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={compostChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {compostChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value} kg`} contentStyle={{ backgroundColor: '#111827', borderColor: '#374151' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
 
-          <div className="space-y-2 mt-4">
-            {sampleCompostDistribution.map((item, idx) => (
-              <div key={idx} className="flex justify-between items-center text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                  <span className="text-slate-400 font-medium">{item.name}</span>
+          {hasCompostData && (
+            <div className="space-y-2 mt-4">
+              {compostChartData.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                    <span className="text-slate-400 font-medium">{item.name}</span>
+                  </div>
+                  <span className="text-white font-bold">{(item.value || 0).toLocaleString('es-CO')} kg</span>
                 </div>
-                <span className="text-white font-bold">{item.value.toLocaleString('es-CO')} kg</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

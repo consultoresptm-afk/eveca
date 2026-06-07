@@ -118,7 +118,15 @@ CREATE TABLE IF NOT EXISTS public.sustainability_indicators (
 ALTER TABLE public.sustainability_indicators ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo a autenticados en sustainability_indicators" ON public.sustainability_indicators;
 CREATE POLICY "Permitir todo a autenticados en sustainability_indicators" ON public.sustainability_indicators
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);`;
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 6. HABILITAR TIEMPO REAL (REALTIME)
+-- Ejecute las siguientes líneas en Supabase SQL Editor para ver las actualizaciones en tiempo real en el Dashboard:
+ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.effluents_logs;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.compost_logs;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.green_areas_logs;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.sustainability_indicators;`;
 
   useEffect(() => {
     runDatabaseTests();
