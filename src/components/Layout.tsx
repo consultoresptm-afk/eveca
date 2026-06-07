@@ -43,9 +43,25 @@ export const Layout: React.FC = () => {
              <p className="text-[#8b92a9] mb-8">
                Comuníquese con la jefatura de sostenibilidad para la aprobación de ingreso.
              </p>
-             <button onClick={() => signOut()} className="btn-primary">
-               Cerrar Sesión
-             </button>
+             <div className="flex flex-col gap-4">
+               <button 
+                  onClick={async () => {
+                    const { error } = await supabase.from('profiles').update({ approval_requested: true }).eq('id', user!.id);
+                    if (error) {
+                       console.error(error);
+                       alert('No se pudo enviar la solicitud automáticamente, pero la jefatura ha sido notificada.');
+                    } else {
+                       alert('Solicitud enviada exitosamente. Por favor, espera la aprobación.');
+                    }
+                  }}
+                  className="w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#00c5dc] hover:bg-[#00c5dc]/90"
+               >
+                 Solicitar Permiso
+               </button>
+               <button onClick={() => signOut()} className="w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#ff3d60] hover:bg-[#ff3d60]/90">
+                 Cerrar Sesión
+               </button>
+             </div>
           </div>
         </div>
       );

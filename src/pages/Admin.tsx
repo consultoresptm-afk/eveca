@@ -190,11 +190,12 @@ export default function Admin() {
               <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
                 <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
                   <table className="min-w-full divide-y divide-[#363952]">
-                    <thead>
+                      <thead>
                       <tr>
                         <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-[#8b92a9] sm:pl-0 uppercase">Nombre</th>
                         <th className="px-3 py-3.5 text-left text-sm font-semibold text-[#8b92a9] uppercase">Email</th>
                         <th className="px-3 py-3.5 text-left text-sm font-semibold text-[#8b92a9] uppercase">Rol</th>
+                        <th className="px-3 py-3.5 text-left text-sm font-semibold text-[#8b92a9] uppercase">Estado Solicitud</th>
                         <th className="px-3 py-3.5 text-left text-sm font-semibold text-[#8b92a9] uppercase">Acciones</th>
                       </tr>
                     </thead>
@@ -215,6 +216,11 @@ export default function Admin() {
                              }>
                                {person.role}
                              </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-[#8b92a9]">
+                            {person.approval_requested ? (
+                              <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-[#f8c851]/10 text-[#f8c851] ring-[#f8c851]/30">Solicitado</span>
+                            ) : '-'}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-[#8b92a9]">
                             <div className="flex gap-2">
