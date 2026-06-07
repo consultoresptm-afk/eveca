@@ -21,10 +21,11 @@ export default function Environmental() {
 
   // Form State
   const [month, setMonth] = useState(new Date().toISOString().substring(0, 7)); // 'YYYY-MM'
-  const [carbonFootprint, setCarbonFootprint] = useState('');
   const [waterConsumption, setWaterConsumption] = useState('');
   const [energyConsumption, setEnergyConsumption] = useState('');
-  const [recycledWaste, setRecycledWaste] = useState('');
+  const [organicWaste, setOrganicWaste] = useState('');
+  const [hazardousWaste, setHazardousWaste] = useState('');
+  const [recyclableWaste, setRecyclableWaste] = useState('');
 
   useEffect(() => {
     fetchIndicators();
@@ -54,18 +55,19 @@ export default function Environmental() {
     setError('');
     setSuccess('');
 
-    if (!carbonFootprint || !waterConsumption || !energyConsumption || !recycledWaste) {
-      setError('Por favor complete todos los indicadores de sostenibilidad del mes.');
+    if (!waterConsumption || !energyConsumption || !organicWaste || !hazardousWaste || !recyclableWaste) {
+      setError('Por favor complete todos los indicadores de gestión ambiental del mes.');
       return;
     }
 
     try {
       const newIndicator: Omit<SustainabilityIndicator, 'id' | 'created_at'> = {
         month,
-        carbon_footprint: Number(carbonFootprint),
         water_consumption: Number(waterConsumption),
         energy_consumption: Number(energyConsumption),
-        recycled_waste: Number(recycledWaste),
+        organic_waste: Number(organicWaste),
+        hazardous_waste: Number(hazardousWaste),
+        recyclable_waste: Number(recyclableWaste),
         created_by: user?.id,
       };
 
@@ -98,10 +100,11 @@ export default function Environmental() {
       setSuccess('¡Indicadores de gestión ambiental actualizados con éxito!');
       
       // Clear inputs
-      setCarbonFootprint('');
       setWaterConsumption('');
       setEnergyConsumption('');
-      setRecycledWaste('');
+      setOrganicWaste('');
+      setHazardousWaste('');
+      setRecyclableWaste('');
 
       fetchIndicators();
     } catch (err: any) {
@@ -144,10 +147,11 @@ export default function Environmental() {
 
   const chartData = indicators.map(ind => ({
     name: getMonthLabel(ind.month),
-    'Huella de Carbono (t CO2)': ind.carbon_footprint,
-    'Agua m³ x10': ind.water_consumption * 10,
-    'Energía kWh /100': ind.energy_consumption / 100,
-    'Residuos kg x10': ind.recycled_waste * 10
+    'Agua m³ x10': (ind.water_consumption || 0) * 10,
+    'Energía kWh /100': (ind.energy_consumption || 0) / 100,
+    'Residuos Orgánicos (kg)': ind.organic_waste || 0,
+    'Residuos Peligrosos (kg)': ind.hazardous_waste || 0,
+    'Residuos Aprovechables (kg)': ind.recyclable_waste || 0
   }));
 
   return (
@@ -179,19 +183,6 @@ export default function Environmental() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Huella de Carbono (t CO2e)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="Ej, 12.4"
-                  value={carbonFootprint}
-                  onChange={(e) => setCarbonFootprint(e.target.value)}
-                  className="input-field"
-                />
-              </div>
-
-              <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1">Consumo de Agua (m³)</label>
                 <input
                   type="number"
@@ -203,9 +194,7 @@ export default function Environmental() {
                   className="input-field"
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1">Consumo Eléctrico (kWh)</label>
                 <input
@@ -218,19 +207,47 @@ export default function Environmental() {
                   className="input-field"
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Material Reciclado (kg)</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Residuos Orgánicos (kg)</label>
                 <input
                   type="number"
                   step="1"
                   required
-                  placeholder="Ej, 780"
-                  value={recycledWaste}
-                  onChange={(e) => setRecycledWaste(e.target.value)}
+                  placeholder="Ej, 1200"
+                  value={organicWaste}
+                  onChange={(e) => setOrganicWaste(e.target.value)}
                   className="input-field"
                 />
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Residuos Peligrosos (kg)</label>
+                <input
+                  type="number"
+                  step="1"
+                  required
+                  placeholder="Ej, 45"
+                  value={hazardousWaste}
+                  onChange={(e) => setHazardousWaste(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Residuos Aprovechables (kg)</label>
+              <input
+                type="number"
+                step="1"
+                required
+                placeholder="Ej, 650"
+                value={recyclableWaste}
+                onChange={(e) => setRecyclableWaste(e.target.value)}
+                className="input-field"
+              />
             </div>
 
             {error && (
@@ -276,10 +293,11 @@ export default function Environmental() {
                     <YAxis stroke="#6b7280" fontSize={11} />
                     <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }} />
                     <Legend />
-                    <Bar dataKey="Huella de Carbono (t CO2)" fill="#ff3d60" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Agua m³ x10" fill="#00c5dc" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Energía kWh /100" fill="#f8c851" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Residuos kg x10" fill="#11c46e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Residuos Orgánicos (kg)" fill="#11c46e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Residuos Peligrosos (kg)" fill="#ff3d60" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Residuos Aprovechables (kg)" fill="#a855f7" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -293,10 +311,11 @@ export default function Environmental() {
                 <thead className="bg-[#0b0f19]">
                   <tr>
                     <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">Período</th>
-                    <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">Huella de CO2</th>
-                    <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">Consumo de Agua</th>
+                    <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">Consumo Agua</th>
                     <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">Consumo Eléctrico</th>
-                    <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">Materia Reciclada</th>
+                    <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">R. Orgánicos</th>
+                    <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">R. Peligrosos</th>
+                    <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">R. Aprovechables</th>
                     <th className="px-4 py-3 text-center font-semibold text-slate-400 uppercase tracking-wider">Eliminar</th>
                   </tr>
                 </thead>
@@ -304,10 +323,11 @@ export default function Environmental() {
                   {indicators.map((ind) => (
                     <tr key={ind.id} className="hover:bg-slate-900/40 text-slate-300">
                       <td className="px-4 py-2.5 font-bold text-white">{getMonthLabel(ind.month)}</td>
-                      <td className="px-4 py-2.5 font-mono text-red-400 font-semibold">{ind.carbon_footprint} tCO2e</td>
                       <td className="px-4 py-2.5 font-mono text-blue-400 font-semibold">{ind.water_consumption} m³</td>
                       <td className="px-4 py-2.5 font-mono text-amber-500 font-semibold">{ind.energy_consumption?.toLocaleString('es-CO')} kWh</td>
-                      <td className="px-4 py-2.5 font-mono text-[#11c46e] font-semibold">{ind.recycled_waste?.toLocaleString('es-CO')} kg</td>
+                      <td className="px-4 py-2.5 font-mono text-[#11c46e] font-semibold">{(ind.organic_waste || 0).toLocaleString('es-CO')} kg</td>
+                      <td className="px-4 py-2.5 font-mono text-red-400 font-semibold">{(ind.hazardous_waste || 0).toLocaleString('es-CO')} kg</td>
+                      <td className="px-4 py-2.5 font-mono text-purple-400 font-semibold">{(ind.recyclable_waste || 0).toLocaleString('es-CO')} kg</td>
                       <td className="px-4 py-2.5 text-center">
                         <button
                           onClick={() => ind.id && handleDelete(ind.id)}

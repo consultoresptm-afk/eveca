@@ -15,7 +15,7 @@ export interface EffluentLog {
   id?: string;
   date: string;
   tank: string;
-  oil_level: number;
+  oil_level?: number;
   recovered_oil?: number;
   ph?: number;
   comments?: string;
@@ -23,6 +23,10 @@ export interface EffluentLog {
   attached_doc_name?: string;
   created_by?: string;
   created_at?: string;
+  pome_input?: number;
+  sent_to_biodigester?: boolean;
+  biodigester_destination?: string;
+  pome_to_biodigester?: number;
 }
 
 export interface CompostLog {
@@ -55,10 +59,11 @@ export interface GreenAreaLog {
 export interface SustainabilityIndicator {
   id?: string;
   month: string;
-  carbon_footprint: number;
   water_consumption: number;
   energy_consumption: number;
-  recycled_waste: number;
+  organic_waste?: number;
+  hazardous_waste?: number;
+  recyclable_waste?: number;
   created_by?: string;
   created_at?: string;
 }

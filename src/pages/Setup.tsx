@@ -48,16 +48,26 @@ CREATE POLICY "Usuarios pueden actualizar su propio perfil" ON public.profiles
 CREATE TABLE IF NOT EXISTS public.effluents_logs (
   id uuid default gen_random_uuid() primary key,
   date timestamp with time zone default now() not null,
-  tank text not null, -- 'TK1', 'TK2'
+  tank text not null, -- 'TK1', 'TK2', 'TK3', 'TK4'
   oil_level numeric,
   recovered_oil numeric,
   ph numeric,
   comments text,
   attached_doc_url text,
   attached_doc_name text,
+  pome_input numeric,
+  sent_to_biodigester boolean default false,
+  biodigester_destination text,
+  pome_to_biodigester numeric,
   created_by uuid references public.profiles(id),
   created_at timestamp with time zone default now()
 );
+
+-- Asegurar columnas si ya existía la tabla
+ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS pome_input numeric;
+ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS sent_to_biodigester boolean DEFAULT false;
+ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS biodigester_destination text;
+ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS pome_to_biodigester numeric;
 
 ALTER TABLE public.effluents_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo a autenticados en effluents" ON public.effluents_logs;
@@ -107,13 +117,19 @@ CREATE POLICY "Permitir todo a autenticados en green_areas" ON public.green_area
 CREATE TABLE IF NOT EXISTS public.sustainability_indicators (
   id uuid default gen_random_uuid() primary key,
   month text not null, -- 'YYYY-MM'
-  carbon_footprint numeric,
   water_consumption numeric,
   energy_consumption numeric,
-  recycled_waste numeric,
+  organic_waste numeric,
+  hazardous_waste numeric,
+  recyclable_waste numeric,
   created_by uuid references public.profiles(id),
   created_at timestamp with time zone default now()
 );
+
+-- Asegurar columnas si ya existía la tabla
+ALTER TABLE public.sustainability_indicators ADD COLUMN IF NOT EXISTS organic_waste numeric;
+ALTER TABLE public.sustainability_indicators ADD COLUMN IF NOT EXISTS hazardous_waste numeric;
+ALTER TABLE public.sustainability_indicators ADD COLUMN IF NOT EXISTS recyclable_waste numeric;
 
 ALTER TABLE public.sustainability_indicators ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo a autenticados en sustainability_indicators" ON public.sustainability_indicators;
