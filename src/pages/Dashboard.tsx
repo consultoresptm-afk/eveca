@@ -5,10 +5,13 @@ import {
   Legend, PieChart, Pie, Cell 
 } from 'recharts';
 import { 
-  TrendingUp, Droplet, Flame, TreePine, FileText, CheckCircle2, ChevronRight, HelpCircle
+  TrendingUp, Droplet, Flame, TreePine, FileText, CheckCircle2, ChevronRight, Recycle,
+  FileSpreadsheet, Camera, Loader2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
+import * as XLSX from 'xlsx';
+import { toPng } from 'html-to-image';
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -18,6 +21,7 @@ export default function Dashboard() {
     greenCount: 0,
     lastPH: '-' as string | number,
     totalOilRecovered: 0,
+    totalWasteAprovechado: 0,
   });
 
   const [recentLogs, setRecentLogs] = useState<any[]>([]);
@@ -25,6 +29,27 @@ export default function Dashboard() {
   const [compostChartData, setCompostChartData] = useState<any[]>([]);
   const [hasEffluentData, setHasEffluentData] = useState(false);
   const [hasCompostData, setHasCompostData] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isExportingImage, setIsExportingImage] = useState(false);
+  const [currentTime, setCurrentTime] = useState<string>('');
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleString('es-CO', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }));
+    };
+    updateClock();
+    const timer = setInterval(updateClock, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     async function loadStats() {
@@ -59,12 +84,27 @@ export default function Dashboard() {
           }
         }
 
+        // Pull sustainability indicators totals for waste KPI
+        const { data: indicators } = await supabase
+          .from('sustainability_indicators')
+          .select('organic_waste, recyclable_waste');
+
+        let totalWasteVal = 0;
+        if (indicators && indicators.length > 0) {
+          totalWasteVal = indicators.reduce((acc, curr) => {
+            const org = Number(curr.organic_waste) || 0;
+            const rec = Number(curr.recyclable_waste) || 0;
+            return acc + org + rec;
+          }, 0);
+        }
+
         setStats({
           effluentsCount: effluentsCount || 0,
           compostCount: compostCount || 0,
           greenCount: greenCount || 0,
           lastPH: lastLoggedPH,
           totalOilRecovered: totalOil,
+          totalWasteAprovechado: totalWasteVal,
         });
 
         // Pull effluents for trend chart
@@ -177,6 +217,9 @@ export default function Dashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'green_areas_logs' }, () => {
         loadStats();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sustainability_indicators' }, () => {
+        loadStats();
+      })
       .subscribe();
 
     return () => {
@@ -184,26 +227,217 @@ export default function Dashboard() {
     };
   }, []);
 
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const [effRes, compRes, greenRes, susRes] = await Promise.all([
+        supabase.from('effluents_logs').select(`*, profiles(name)`).order('date', { ascending: false }),
+        supabase.from('compost_logs').select(`*, profiles(name)`).order('date', { ascending: false }),
+        supabase.from('green_areas_logs').select(`*, profiles(name)`).order('date', { ascending: false }),
+        supabase.from('sustainability_indicators').select(`*, profiles(name)`).order('month', { ascending: false })
+      ]);
+
+      const wb = XLSX.utils.book_new();
+
+      const execSummary = [
+        { "INDICADORES DEL SISTEMA": "EVECA S.A.S. - REPORTE DE SOSTENIBILIDAD", "VALOR / ESTADO": "CENTRO INTEGRADO GERENCIAL" },
+        { "INDICADORES DEL SISTEMA": "", "VALOR / ESTADO": "" },
+        { "INDICADORES DEL SISTEMA": "Fecha de exportación", "VALOR / ESTADO": new Date().toLocaleDateString('es-CO') },
+        { "INDICADORES DEL SISTEMA": "Generado por", "VALOR / ESTADO": profile?.name || 'Jefatura de Sostenibilidad' },
+        { "INDICADORES DEL SISTEMA": "", "VALOR / ESTADO": "" },
+        { "INDICADORES DEL SISTEMA": "INDICADOR CLAVE (KPI)", "VALOR / ESTADO": "VALOR ACUMULADO" },
+        { "INDICADORES DEL SISTEMA": "Mitigación de Efluentes - Aceite Recuperado (L)", "VALOR / ESTADO": stats.totalOilRecovered },
+        { "INDICADORES DEL SISTEMA": "Economía Circular - Residuos Aprovechados (kg)", "VALOR / ESTADO": stats.totalWasteAprovechado },
+        { "INDICADORES DEL SISTEMA": "Registros Totales de Monitoreo de Efluentes", "VALOR / ESTADO": stats.effluentsCount },
+        { "INDICADORES DEL SISTEMA": "Ciclos de Compostaje Controlados", "VALOR / ESTADO": stats.compostCount },
+        { "INDICADORES DEL SISTEMA": "Mantenimientos de Áreas Verdes Ejecutados", "VALOR / ESTADO": stats.greenCount },
+        { "INDICADORES DEL SISTEMA": "Último pH medido en campo", "VALOR / ESTADO": stats.lastPH }
+      ];
+      const wsSummary = XLSX.utils.json_to_sheet(execSummary, { skipHeader: true });
+      wsSummary['!cols'] = [{ wch: 45 }, { wch: 30 }];
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen Ejecutivo");
+
+      if (effRes.data) {
+        const effData = effRes.data.map(item => ({
+          "Fecha": new Date(item.date).toLocaleDateString('es-CO') + ' ' + new Date(item.date).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
+          "Tanque": item.tank,
+          "Tipo de Registro": item.tank === 'TK2' ? 'Recuperación de Aceite' : 'Flujo de POME',
+          "Nivel de Aceite (cm)": item.tank === 'TK2' && item.oil_level !== null ? Number(item.oil_level) : '-',
+          "Aceite Extraído (L)": item.tank === 'TK2' && item.recovered_oil !== null ? Number(item.recovered_oil) : '-',
+          "POME Ingreso (m³)": item.tank !== 'TK2' && item.pome_input !== null ? Number(item.pome_input) : '-',
+          "Evacuación a Biodigestor": item.sent_to_biodigester ? 'SÍ' : 'NO',
+          "Destino Biodigestor": item.biodigester_destination || '-',
+          "Volumen Despachado (m³)": item.pome_to_biodigester !== null ? Number(item.pome_to_biodigester) : '-',
+          "Potencial pH": item.ph !== null ? Number(item.ph) : '-',
+          "Observaciones Técnicas": item.comments || 'Sin novedades',
+          "Registrado Por": item.profiles?.name || 'Operación Planta',
+          "Documento Adjunto": item.attached_doc_url || 'No adjunto'
+        }));
+        const wsEff = XLSX.utils.json_to_sheet(effData);
+        wsEff['!cols'] = [
+          { wch: 20 }, { wch: 10 }, { wch: 25 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 24 }, { wch: 12 }, { wch: 45 }, { wch: 20 }, { wch: 50 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsEff, "Bitácora Efluentes");
+      }
+
+      if (compRes.data) {
+        const compData = compRes.data.map(item => ({
+          "Fecha": new Date(item.date).toLocaleDateString('es-CO'),
+          "Materia Prima Ingreso (kg)": item.raw_material_in !== null ? Number(item.raw_material_in) : 0,
+          "Temperatura (°C)": item.temperature !== null ? Number(item.temperature) : 0,
+          "Humedad (%)": item.humidity !== null ? Number(item.humidity) : 0,
+          "¿Volteado de Pila?": item.turned ? 'SÍ' : 'NO',
+          "Observaciones de Proceso": item.comments || 'Sin novedades',
+          "Registrado Por": item.profiles?.name || 'Operación Planta',
+          "Documento Adjunto": item.attached_doc_url || 'No adjunto'
+        }));
+        const wsComp = XLSX.utils.json_to_sheet(compData);
+        wsComp['!cols'] = [
+          { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 20 }, { wch: 45 }, { wch: 20 }, { wch: 50 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsComp, "Biomasa y Compostaje");
+      }
+
+      if (greenRes.data) {
+        const greenData = greenRes.data.map(item => ({
+          "Fecha": new Date(item.date).toLocaleDateString('es-CO'),
+          "Nombre de Área": item.area_name,
+          "Tipo de Mantenimiento": item.maintenance_type,
+          "Empresa/Jardinero Ejecutor": item.gardener_company || 'Interno',
+          "Observaciones de Poda/Mantenimiento": item.observations || 'Sin observaciones',
+          "Registrado Por": item.profiles?.name || 'Operación Planta',
+          "Documento Adjunto": item.attached_doc_url || 'No adjunto'
+        }));
+        const wsGreen = XLSX.utils.json_to_sheet(greenData);
+        wsGreen['!cols'] = [
+          { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 30 }, { wch: 45 }, { wch: 20 }, { wch: 50 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsGreen, "Mantenimiento Áreas Verdes");
+      }
+
+      if (susRes.data) {
+        const susData = susRes.data.map(item => ({
+          "Período (Mes)": item.month,
+          "Consumo de Agua (m³)": item.water_consumption !== null ? Number(item.water_consumption) : 0,
+          "Consumo Eléctrico (kWh)": item.energy_consumption !== null ? Number(item.energy_consumption) : 0,
+          "Residuos Orgánicos (kg)": item.organic_waste !== null ? Number(item.organic_waste) : 0,
+          "Residuos Peligrosos (kg)": item.hazardous_waste !== null ? Number(item.hazardous_waste) : 0,
+          "Residuos Aprovechables (kg)": item.recyclable_waste !== null ? Number(item.recyclable_waste) : 0,
+          "Registrado Por": item.profiles?.name || 'Gestión Sostenibilidad'
+        }));
+        const wsSus = XLSX.utils.json_to_sheet(susData);
+        wsSus['!cols'] = [
+          { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 22 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsSus, "Indicadores Gestión Ambiental");
+      }
+
+      XLSX.writeFile(wb, `Reporte_Gerencial_Sostenibilidad_EVECA_${new Date().toISOString().substring(0, 10)}.xlsx`);
+    } catch (error) {
+      console.error('Error al exportar a Excel:', error);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  const handleCaptureDashboard = async () => {
+    const node = document.getElementById('dashboard-root');
+    if (!node) {
+      console.error('El elemento dashboard-root no existe en el DOM');
+      return;
+    }
+    try {
+      setIsExportingImage(true);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        backgroundColor: '#030712',
+        style: {
+          borderRadius: '0px',
+        }
+      });
+      const link = document.createElement('a');
+      link.download = `EVECA_Dashboard_Sostenibilidad_${new Date().toISOString().substring(0, 10)}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Error al capturar la imagen del dashboard:', err);
+    } finally {
+      setIsExportingImage(false);
+    }
+  };
+
   return (
-    <div className="space-y-8">
+    <div id="dashboard-root" className="space-y-8 p-4 md:p-6 bg-slate-950/20 border border-transparent rounded-2xl">
+      {/* Cabecera Corporativa de Control de Gestión */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#0b0f19] to-slate-900 border border-slate-800 p-4 px-6 rounded-xl">
+        <div className="flex items-center gap-3">
+          <span className="flex h-3 w-3 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          </span>
+          <div>
+            <span className="text-[10px] font-mono font-bold text-slate-400 tracking-widest block">SISTEMA INTEGRADO DE GESTIÓN</span>
+            <span className="text-sm font-bold text-white tracking-wide">EVECA S.A.S. • REPORTE GERENCIAL</span>
+          </div>
+        </div>
+        <div className="flex flex-col sm:items-end font-mono">
+          <span className="text-[10px] text-slate-500 font-bold">JEFATURA DE SOSTENIBILIDAD</span>
+          <span className="text-xs text-slate-300 font-semibold mt-0.5">
+            FECHA DE CORTE: <span className="text-[#00c5dc] font-bold">{currentTime}</span>
+          </span>
+        </div>
+      </div>
+
       {/* Welcome Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-6 md:p-8 rounded-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#00c5dc]/5 rounded-full blur-3xl -z-10"></div>
         <div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">EVECA S.A.S.</h1>
           <p className="text-slate-400 mt-2 max-w-2xl text-sm">
-            Bienvenido, <span className="text-slate-100 font-semibold">{profile?.name || 'Operador de Planta'}</span>. Este es el centro integrado de Sostenibilidad, optimización de tanques australianos, reciclaje orgánico y conservación de áreas verdes.
+            Bienvenido, <span className="text-slate-100 font-semibold">{profile?.name || 'Operador de Planta'}</span>. Este es el centro integrado de la Jefatura de Sostenibilidad.
           </p>
         </div>
         <div className="flex gap-3">
-          <Link to="/setup" className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1">
-            <HelpCircle className="w-4 h-4" /> Diagnóstico BD
-          </Link>
+          <button
+            onClick={handleCaptureDashboard}
+            disabled={isExportingImage}
+            className="px-4 py-2 bg-slate-850 hover:bg-slate-800 disabled:opacity-50 text-slate-300 border border-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            {isExportingImage ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-[#00c5dc]" />
+                Capturando...
+              </>
+            ) : (
+              <>
+                <Camera className="w-4 h-4 text-[#00c5dc]" />
+                Dashboard
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            className="px-4 py-2 bg-[#11c46e]/10 hover:bg-[#11c46e]/20 disabled:opacity-50 text-[#11c46e] border border-[#11c46e]/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            {isExportingExcel ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Exportando...
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet className="w-4 h-4" />
+                Exportar Excel
+              </>
+            )}
+          </button>
         </div>
       </div>
 
       {/* Numerical Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="dash-card p-6 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-slate-900 to-[#111827]">
           <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-xl"></div>
           <div className="flex justify-between items-center mb-4">
@@ -245,6 +479,22 @@ export default function Dashboard() {
           <div>
             <h3 className="text-3xl font-extrabold text-[#00c5dc]">{stats.compostCount || 0}</h3>
             <p className="text-xs text-slate-400 mt-1">Ciclos de maduración</p>
+          </div>
+        </div>
+
+        <div className="dash-card p-6 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-slate-900 to-[#111827]">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/5 rounded-full blur-xl"></div>
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Residuos Aprovechados</span>
+            <div className="p-2 bg-purple-500/10 text-purple-400 rounded-md">
+              <Recycle className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <h3 className="text-3xl font-extrabold text-purple-400">
+              {stats.totalWasteAprovechado ? stats.totalWasteAprovechado.toLocaleString('es-CO') : '0'} kg
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">Gestión Ambiental valorizada</p>
           </div>
         </div>
 
@@ -457,6 +707,12 @@ export default function Dashboard() {
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* Footer Gerencial de Exportación */}
+      <div className="pt-6 border-t border-slate-900/60 flex flex-col sm:flex-row justify-between items-center gap-2 text-[10px] font-mono text-slate-500">
+        <span>© {new Date().getFullYear()} EVECA S.A.S. - Centro Integrado de Planta.</span>
+        <span className="text-slate-600">REPORTE DE SOSTENIBILIDAD CONTROLADO • CONFIDENCIALIDAD NIVEL GERENCIAL</span>
       </div>
     </div>
   );
