@@ -34,33 +34,37 @@ export const Layout: React.FC = () => {
     setRequestError('');
     setSuccessMessage('');
     try {
-      // 1. Upsert profile in Supabase to guarantee record creation
-      const userNameValue = profile?.name || user.email?.split('@')[0] || 'Nuevo Usuario';
+      // 1. Execute a direct UPDATE as requested to update approval_requested and access_requested_at
+      console.log("DEBUG: Iniciando actualización de acceso para id = ", user.id);
       const { error: dbError } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          name: userNameValue,
-          status: 'pending',
-          access_requested_at: new Date().toISOString(),
+        .update({
           approval_requested: true,
-          role: profile?.role || 'PENDING'
-        });
+          access_requested_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
 
       if (dbError) {
-        throw new Error(`Error en base de datos: ${dbError.message}`);
+        console.error("DEBUG: Falló el UPDATE en la tabla profiles:", dbError);
+        throw new Error(`Error en base de datos al solicitar acceso: ${dbError.message} (Código de error: ${dbError.code || 'N/A'})`);
       }
 
+      console.log("DEBUG: UPDATE de perfil en Supabase ejecutado correctamente.");
+
       // 2. Refresh local profile cache to prevent double sending and show pending status immediately
-      setProfileState({
+      const userNameValue = profile?.name || user.email?.split('@')[0] || 'Nuevo Usuario';
+      setProfileState(prev => prev ? {
+        ...prev,
+        approval_requested: true,
+        access_requested_at: new Date().toISOString()
+      } : {
         id: user.id,
         email: user.email || '',
         name: userNameValue,
         status: 'pending',
         approval_requested: true,
         access_requested_at: new Date().toISOString(),
-        role: profile?.role || 'PENDING'
+        role: 'PENDING'
       });
 
       // 3. Call server-side API proxy to send email via Resend
@@ -82,7 +86,7 @@ export const Layout: React.FC = () => {
 
       setSuccessMessage("✅ Solicitud enviada. La Jefatura de Sostenibilidad revisará tu acceso pronto.");
     } catch (err: any) {
-      console.error(err);
+      console.error("DEBUG: Capturado error en handleRequestAccess:", err);
       setRequestError(err.message || 'Ocurrió un error inesperado al tramitar tu solicitud.');
     } finally {
       setIsSending(false);

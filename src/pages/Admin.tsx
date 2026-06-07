@@ -120,8 +120,8 @@ export default function Admin() {
     );
   }
 
-  const pendingCount = users.filter(u => u.status !== 'approved' || u.approval_requested === true).length;
-  const approvedCount = users.filter(u => u.status === 'approved').length;
+  const pendingCount = users.filter(u => u.status === 'pending' || u.approval_requested === true).length;
+  const approvedCount = users.filter(u => u.status === 'approved' && u.approval_requested !== true).length;
 
   const filteredUsers = users.filter(u => 
     u.name?.toLowerCase().includes(filter.toLowerCase()) || 
@@ -227,7 +227,7 @@ export default function Admin() {
               </thead>
               <tbody className="divide-y divide-slate-800 bg-slate-900/20">
                 {filteredUsers.map((person) => {
-                  const isUserApproved = person.status === 'approved';
+                  const isUserApproved = person.status === 'approved' && person.approval_requested !== true;
                   const isCurrentUser = person.id === currentAuthUser?.id;
                   
                   return (
