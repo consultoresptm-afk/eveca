@@ -46,11 +46,13 @@ export const Layout: React.FC = () => {
              <div className="flex flex-col gap-4">
                <button 
                   onClick={async () => {
+                    console.log("Requesting approval for:", user!.id);
                     const { error } = await supabase.from('profiles').update({ approval_requested: true }).eq('id', user!.id);
                     if (error) {
-                       console.error(error);
+                       console.error("Supabase update error:", error);
                        alert('No se pudo enviar la solicitud automáticamente, pero la jefatura ha sido notificada.');
                     } else {
+                       console.log("Request sent successfully.");
                        alert('Solicitud enviada exitosamente. Por favor, espera la aprobación.');
                     }
                   }}

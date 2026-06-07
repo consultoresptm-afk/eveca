@@ -31,6 +31,7 @@ export default function Admin() {
       console.error("Error fetching users:", error);
       alert('Error al cargar usuarios.');
     } else if (data) {
+      console.log("Users fetched:", data);
       setUsers(data);
     }
   };
