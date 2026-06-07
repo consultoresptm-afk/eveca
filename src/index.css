@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background-color: #1e1e2b;
+  color: #ffffff;
+  color-scheme: dark;
+}
+
+.dash-card {
+  background-color: #27293d;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #363952;
+}
+
+.table-container {
+  background-color: #27293d;
+  border-radius: 0.75rem;
+  border: 1px solid #363952;
+  overflow: hidden;
+  width: 100%;
+}
+
+.table-th {
+  background-color: #1a1a27;
+  color: #8b92a9;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  text-align: left;
+  border-bottom: 1px solid #363952;
+}
+
+.table-td {
+  color: #e2e8f0;
+  font-size: 0.875rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #363952;
+  white-space: nowrap;
+}
+
+.table-tr {
+  background-color: transparent;
+}
+.table-tr:hover {
+  background-color: #2c2f44;
+}
+
+.input-field {
+  background-color: #1e1e2b;
+  border: 1px solid #363952;
+  color: #ffffff;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+.input-field:focus {
+  outline: none;
+  border-color: #00c5dc;
+  box-shadow: 0 0 0 1px #00c5dc;
+}
+.dash-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #8b92a9;
+  margin-bottom: 0.25rem;
+}
+
+.btn-primary {
+  background-color: #00c5dc;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+.btn-primary:hover {
+  background-color: #00a4b8;
+}

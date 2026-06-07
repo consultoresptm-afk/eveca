@@ -1,0 +1,8 @@
+{
+  "name": "Eveca Sostenibilidad",
+  "description": "Sistema de administraciÃ³n integral para la Jefatura de Sostenibilidad de la industria de palma de aceite Eveca.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
