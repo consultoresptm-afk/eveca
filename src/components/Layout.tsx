@@ -34,29 +34,34 @@ export const Layout: React.FC = () => {
     setRequestError('');
     setSuccessMessage('');
     try {
-      // 1. Update profiles in Supabase
+      // 1. Upsert profile in Supabase to guarantee record creation
+      const userNameValue = profile?.name || user.email?.split('@')[0] || 'Nuevo Usuario';
       const { error: dbError } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: user.id,
+          email: user.email,
+          name: userNameValue,
           status: 'pending',
           access_requested_at: new Date().toISOString(),
-          approval_requested: true
-        })
-        .eq('id', user.id);
+          approval_requested: true,
+          role: profile?.role || 'PENDING'
+        });
 
       if (dbError) {
         throw new Error(`Error en base de datos: ${dbError.message}`);
       }
 
-      // 2. Refresh local profile cache to prevent double sending
-      if (profile) {
-        setProfileState({
-          ...profile,
-          status: 'pending',
-          approval_requested: true,
-          access_requested_at: new Date().toISOString()
-        });
-      }
+      // 2. Refresh local profile cache to prevent double sending and show pending status immediately
+      setProfileState({
+        id: user.id,
+        email: user.email || '',
+        name: userNameValue,
+        status: 'pending',
+        approval_requested: true,
+        access_requested_at: new Date().toISOString(),
+        role: profile?.role || 'PENDING'
+      });
 
       // 3. Call server-side API proxy to send email via Resend
       const appUrl = window.location.origin;
@@ -117,7 +122,7 @@ export const Layout: React.FC = () => {
           
           <h2 className="text-2xl font-bold text-white mb-2">Acceso Pendiente / Denegado</h2>
           <p className="text-slate-400 text-sm mb-6">
-            Para ingresar al sistema de sostenibilidad, tu usuario debe recibir la habilitación correspondiente de la gerencia.
+            Para ingresar al sistema de sostenibilidad, tu usuario debe recibir la habilitación correspondiente de la Jefatura de Sostenibilidad.
           </p>
 
           <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 mb-8 text-left text-xs text-slate-400 space-y-2">

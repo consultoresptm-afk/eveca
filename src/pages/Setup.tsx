@@ -44,6 +44,20 @@ DROP POLICY IF EXISTS "Usuarios pueden actualizar su propio perfil" ON public.pr
 CREATE POLICY "Usuarios pueden actualizar su propio perfil" ON public.profiles
   FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Permitir actualizaciones para súper administradores" ON public.profiles;
+CREATE POLICY "Permitir actualizaciones para súper administradores" ON public.profiles
+  FOR UPDATE TO authenticated USING (
+    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com'
+  ) WITH CHECK (
+    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com'
+  );
+
+DROP POLICY IF EXISTS "Permitir eliminación para súper administradores" ON public.profiles;
+CREATE POLICY "Permitir eliminación para súper administradores" ON public.profiles
+  FOR DELETE TO authenticated USING (
+    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com'
+  );
+
 -- 2. TABLA DE EFLUENTES (effluents_logs)
 CREATE TABLE IF NOT EXISTS public.effluents_logs (
   id uuid default gen_random_uuid() primary key,
