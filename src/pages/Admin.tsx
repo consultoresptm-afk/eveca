@@ -26,8 +26,13 @@ export default function Admin() {
   }, [isSuperAdmin, activeTab, startDate, endDate]);
 
   const fetchUsers = async () => {
-    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    if (data) setUsers(data);
+    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    if (error) {
+      console.error("Error fetching users:", error);
+      alert('Error al cargar usuarios.');
+    } else if (data) {
+      setUsers(data);
+    }
   };
 
   const fetchAuditLogs = async () => {
