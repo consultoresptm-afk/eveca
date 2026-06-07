@@ -97,6 +97,24 @@ export default function Dashboard() {
       }
     }
     loadStats();
+
+    // Realtime channel subscriptions to update stats dynamically
+    const channel = supabase
+      .channel('plant-dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'effluents_logs' }, () => {
+        loadStats();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'compost_logs' }, () => {
+        loadStats();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'green_areas_logs' }, () => {
+        loadStats();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
