@@ -6,6 +6,10 @@ export interface UserProfile {
   role: Role;
   name: string;
   created_at?: string;
+  status?: string;
+  access_requested?: boolean;
+  access_requested_at?: string;
+  approval_requested?: boolean;
 }
 
 export interface EffluentLog {

@@ -102,7 +102,7 @@ export default function GreenAreas() {
       }
     } catch (err) {
        console.error("Upload Error:", err);
-       alert('Error con los archivos, revise si tiene permisos en Setup.');
+       alert('Error con los archivos, por favor verifique que su cuenta de almacenamiento esté bien configurada.');
     } finally {
        setIsUploading(false);
     }

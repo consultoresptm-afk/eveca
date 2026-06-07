@@ -448,7 +448,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#363952" />
                   <XAxis dataKey="name" fontSize={10} tickMargin={10} stroke="#8b92a9" />
                   <YAxis fontSize={10} width={30} stroke="#8b92a9" />
-                  <Tooltip fontSize={12} contentStyle={{ backgroundColor: '#27293d', borderColor: '#363952', color: '#fff' }} />
+                  <Tooltip contentStyle={{ backgroundColor: '#27293d', borderColor: '#363952', color: '#fff', fontSize: '12px' }} />
                   <Area type="monotone" dataKey="Aceite Recuperado (TK2)" stroke="#f8c851" fillOpacity={1} fill="url(#colorOil)" />
                 </AreaChart>
               </ResponsiveContainer>

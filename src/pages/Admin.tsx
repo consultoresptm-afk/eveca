@@ -116,8 +116,11 @@ export default function Admin() {
   };
 
   const approveUser = async (id: string, currentRole: string) => {
+    const targetRole = currentRole === 'PENDING' ? 'EDITOR' : currentRole;
     const { error } = await supabase.from('profiles').update({ 
-      role: currentRole === 'PENDING' ? 'EDITOR' : currentRole,
+      role: targetRole,
+      status: 'approved',
+      access_requested: false,
       approval_requested: false 
     }).eq('id', id);
     if (!error) {
@@ -222,13 +225,13 @@ export default function Admin() {
                              </span>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-[#8b92a9]">
-                            {person.approval_requested ? (
+                            {person.status === 'approved' ? <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-[#11c46e]/10 text-[#11c46e] ring-[#11c46e]/30">Aprobado</span> : (person.access_requested || person.approval_requested || person.status === 'pending' || person.role === 'PENDING') ? (
                               <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-[#f8c851]/10 text-[#f8c851] ring-[#f8c851]/30">Solicitado</span>
                             ) : '-'}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-[#8b92a9]">
                             <div className="flex gap-2">
-                              {(person.role === 'PENDING' || person.approval_requested) && (
+                              {(person.status !== 'approved' || person.role === 'PENDING' || person.approval_requested || person.access_requested) && (
                                 <button
                                   onClick={() => approveUser(person.id, person.role)}
                                   className="text-xs bg-[#11c46e]/20 text-[#11c46e] hover:bg-[#11c46e]/30 px-3 py-1 rounded transition-colors"

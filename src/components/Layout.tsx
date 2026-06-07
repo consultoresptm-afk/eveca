@@ -16,11 +16,62 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase';
 
 export const Layout: React.FC = () => {
   const { user, profile, loading, signOut, isSuperAdmin } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isSending, setIsSending] = React.useState(false);
+  const [successMessage, setSuccessMessage] = React.useState('');
+
+  const handleRequestAccess = async () => {
+    if (!user) return;
+    setIsSending(true);
+    setSuccessMessage('');
+    try {
+      // 1. Update in Supabase profiles
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          status: 'pending',
+          access_requested: true,
+          access_requested_at: new Date().toISOString(),
+          approval_requested: true
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error("Supabase update error:", error);
+        alert('No se pudo enviar la solicitud en la base de datos: ' + error.message);
+        setIsSending(false);
+        return;
+      }
+
+      // 2. Call our safe backend endpoint using Resend
+      const res = await fetch('/api/request-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          userName: profile?.name || user.email || 'Nuevo Usuario',
+          userEmail: user.email,
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("Failed to send email notification option:", errData);
+      }
+
+      setSuccessMessage("✅ Solicitud enviada. La Jefatura de Sostenibilidad revisará tu acceso pronto.");
+    } catch (err) {
+      console.error(err);
+      alert('Ocurrió un error al enviar la solicitud.');
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">Loading...</div>;
@@ -30,44 +81,46 @@ export const Layout: React.FC = () => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!profile || profile.role === 'PENDING') {
-    // Excepción de seguridad para asegurar que el superadmin inicial nunca se bloquee si hay falla cargando perfil
-    if (user?.email === 'wmartinezm360@gmail.com') {
-      // Allow passthrough
-    } else {
-      return (
-        <div className="min-h-screen flex items-center justify-center dashboard-bg">
-          <div className="dash-card p-12 text-center max-w-lg mx-6">
-             <ShieldAlert className="h-16 w-16 text-[#ff3d60] mx-auto mb-6" />
-             <h2 className="text-2xl font-bold text-white mb-4">Acceso Pendiente / Denegado</h2>
-             <p className="text-[#8b92a9] mb-8">
-               Comuníquese con la jefatura de sostenibilidad para la aprobación de ingreso.
-             </p>
-             <div className="flex flex-col gap-4">
-               <button 
-                  onClick={async () => {
-                    console.log("Requesting approval for:", user!.id);
-                    const { error } = await supabase.from('profiles').update({ approval_requested: true }).eq('id', user!.id);
-                    if (error) {
-                       console.error("Supabase update error:", error);
-                       alert('No se pudo enviar la solicitud automáticamente, pero la jefatura ha sido notificada.');
-                    } else {
-                       console.log("Request sent successfully.");
-                       alert('Solicitud enviada exitosamente. Por favor, espera la aprobación.');
-                    }
-                  }}
-                  className="w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#00c5dc] hover:bg-[#00c5dc]/90"
-               >
-                 Solicitar Permiso
-               </button>
-               <button onClick={() => signOut()} className="w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#ff3d60] hover:bg-[#ff3d60]/90">
-                 Cerrar Sesión
-               </button>
-             </div>
-          </div>
+  // Allow passthrough for wmartinezm360@gmail.com and SUPERADMIN
+  const isExcluded = user?.email === 'wmartinezm360@gmail.com' || profile?.role === 'SUPERADMIN';
+
+  if (!isExcluded && (!profile || profile.status !== 'approved')) {
+    const hasRequested = profile?.access_requested === true || profile?.approval_requested === true || !!successMessage;
+    
+    return (
+      <div className="min-h-screen flex items-center justify-center dashboard-bg">
+        <div className="dash-card p-12 text-center max-w-lg mx-6">
+           <ShieldAlert className="h-16 w-16 text-[#ff3d60] mx-auto mb-6" />
+           <h2 className="text-2xl font-bold text-white mb-4">Acceso Pendiente / Denegado</h2>
+           <p className="text-[#8b92a9] mb-8">
+             Comuníquese con la jefatura de sostenibilidad para la aprobación de ingreso.
+           </p>
+           
+           <div className="flex flex-col gap-4">
+             {hasRequested ? (
+               <div className="bg-[#f8c851]/10 text-[#f8c851] p-4 rounded-md text-sm border border-[#f8c851]/20 mb-2">
+                 Solicitud ya enviada. Espera la aprobación.
+               </div>
+             ) : successMessage ? (
+               <div className="bg-[#11c46e]/10 text-[#11c46e] p-4 rounded-md text-sm border border-[#11c46e]/20 mb-2">
+                 {successMessage}
+               </div>
+             ) : null}
+
+             <button 
+                onClick={handleRequestAccess}
+                disabled={hasRequested || isSending}
+                className="w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#00c5dc] hover:bg-[#00c5dc]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+               {hasRequested ? 'Solicitud Enviada' : isSending ? 'Enviando...' : 'Solicitar Permiso'}
+             </button>
+             <button onClick={() => signOut()} className="w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#ff3d60] hover:bg-[#ff3d60]/90">
+               Cerrar Sesión
+             </button>
+           </div>
         </div>
-      );
-    }
+      </div>
+    );
   }
 
   const navigation = [
@@ -81,7 +134,6 @@ export const Layout: React.FC = () => {
 
   if (isSuperAdmin) {
     navigation.push({ name: 'Administración', href: '/admin', icon: Users });
-    navigation.push({ name: 'Setup', href: '/setup', icon: Settings });
   }
 
   return (

@@ -42,7 +42,7 @@ export default function Login() {
                  id: data.user.id, 
                  email: email, 
                  name: name,
-                 role: email === 'wmartinezm360@gmail.com' ? 'SUPERADMIN' : 'PENDING' 
+                 role: email === 'wmartinezm360@gmail.com' ? 'SUPERADMIN' : 'PENDING', status: email === 'wmartinezm360@gmail.com' ? 'approved' : 'pending', access_requested: false, approval_requested: false 
                }
              ]);
              if (profileError) {
@@ -203,9 +203,7 @@ export default function Login() {
             </div>
           </div>
           
-          <div className="mt-6 text-sm text-center text-gray-500">
-             <p>Nota: Asegúrese de haber configurado las variables de entorno de Supabase y el modelo de datos SQL en el <b>Setup</b>.</p>
-          </div>
+
         </div>
       </div>
     </div>

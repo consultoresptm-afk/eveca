@@ -7,8 +7,18 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email text,
   name text,
   role text check (role in ('SUPERADMIN', 'EDITOR', 'PENDING')),
+  status text default 'pending',
+  access_requested boolean default false,
+  access_requested_at timestamp with time zone,
+  approval_requested boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Asegura que existan las nuevas columnas para el flujo de aprobación si la tabla ya existía
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS access_requested boolean DEFAULT false;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS access_requested_at timestamp with time zone;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS approval_requested boolean DEFAULT false;
 
 -- Habilita RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -21,6 +31,10 @@ CREATE POLICY "Public profiles are viewable by everyone."
 DROP POLICY IF EXISTS "Users can insert their own profile." ON public.profiles;
 CREATE POLICY "Users can insert their own profile."
   ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can update their own profile." ON public.profiles;
+CREATE POLICY "Users can update their own profile."
+  ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Tabla de Efluentes (Tanques Australianos)
 CREATE TABLE IF NOT EXISTS public.effluents_logs (
