@@ -372,7 +372,7 @@ export default function Dashboard() {
     <div className="space-y-6" ref={dashboardRef}>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Tablero de Mando Unificado (BSC)</h1>
+          <h1 className="text-2xl font-bold text-white">Tablero Jefatura de Sostenibilidad</h1>
           <p className="text-sm text-[#8b92a9]">Perspectiva operativa y estratégica de la Jefatura de Sostenibilidad.</p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
