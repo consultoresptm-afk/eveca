@@ -114,8 +114,11 @@ export default function Admin() {
     }
   };
 
-  const approveUser = async (id: string) => {
-    const { error } = await supabase.from('profiles').update({ role: 'EDITOR' }).eq('id', id);
+  const approveUser = async (id: string, currentRole: string) => {
+    const { error } = await supabase.from('profiles').update({ 
+      role: currentRole === 'PENDING' ? 'EDITOR' : currentRole,
+      approval_requested: false 
+    }).eq('id', id);
     if (!error) {
       fetchUsers();
     } else {
@@ -224,9 +227,9 @@ export default function Admin() {
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-[#8b92a9]">
                             <div className="flex gap-2">
-                              {person.role === 'PENDING' && (
+                              {(person.role === 'PENDING' || person.approval_requested) && (
                                 <button
-                                  onClick={() => approveUser(person.id)}
+                                  onClick={() => approveUser(person.id, person.role)}
                                   className="text-xs bg-[#11c46e]/20 text-[#11c46e] hover:bg-[#11c46e]/30 px-3 py-1 rounded transition-colors"
                                 >
                                   Aprobar
