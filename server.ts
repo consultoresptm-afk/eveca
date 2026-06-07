@@ -1,125 +1,98 @@
-import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
-import { Resend } from "resend";
-import "dotenv/config";
+import express from 'express';
+import cors from 'cors';
+import { Resend } from 'resend';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-  app.use(express.json());
+// Initialize Resend
+const resendApiKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY || '';
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || 'notificaciones@evecasas.onmicrosoft.com';
 
-  // Init Resend. 
-  // IMPORTANT: The user MUST provide RESEND_API_KEY in their .env
-  const resend = new Resend(process.env.RESEND_API_KEY || "missing-key");
+// Endpoint to send approval emails
+app.post('/api/request-access', async (req, res) => {
+  const { userName, userEmail, appUrl } = req.body;
 
-  // API Routes
-  app.post("/api/notify-login", async (req, res) => {
-    try {
-      const { email, name } = req.body;
-      
-      if (!process.env.RESEND_API_KEY) {
-        console.warn("No RESEND_API_KEY found, skipping email notification.");
-        return res.status(200).json({ success: true, message: "Skipped email" });
-      }
-
-      console.log(`Sending email notification for login: ${name} (${email})`);
-      
-      const fromEmail = process.env.RESEND_FROM_EMAIL || "Eveca System <onboarding@resend.dev>";
-      const { data, error } = await resend.emails.send({
-        from: fromEmail,
-        to: "wmartinezm360@gmail.com",
-        subject: "Alerta de Ingreso al Sistema - Jefatura de Sostenibilidad",
-        html: `
-          <h2>Nueva Alerta de Ingreso al Sistema</h2>
-          <p>Un usuario acaba de ingresar al sistema Eveca - Jefatura de Sostenibilidad.</p>
-          <ul>
-            <li><strong>Nombre:</strong> ${name || "No proporcionado"}</li>
-            <li><strong>Correo:</strong> ${email}</li>
-          </ul>
-          <p><small>Este es un mensaje automático del sistema. La hora de acceso fue: ${new Date().toLocaleString()}</small></p>
-        `,
-      });
-
-      if (error) {
-        console.error("Resend error:", error);
-        return res.status(400).json({ error });
-      }
-
-      res.status(200).json({ success: true, data });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Internal Server Error" });
-    }
-  });
-
-  app.post("/api/request-access", async (req, res) => {
-    try {
-      const { userId, userName, userEmail } = req.body;
-
-      if (!process.env.RESEND_API_KEY) {
-        console.warn("No RESEND_API_KEY found, skipping email notification.");
-        return res.status(200).json({ success: true, message: "Skipped email because key is missing" });
-      }
-
-      console.log(`Sending email notification for access request: ${userName} (${userEmail})`);
-
-      const appUrl = req.headers.origin || process.env.APP_URL || "https://ais-dev-24q7edlfjh3p2ksro6ao62-440695687751.us-east1.run.app";
-      const fromEmail = process.env.RESEND_FROM_EMAIL || "Eveca Sistema <onboarding@resend.dev>";
-
-      const { data, error } = await resend.emails.send({
-        from: fromEmail,
-        to: "wmartinezm360@gmail.com",
-        subject: `🔔 Nueva solicitud de acceso — ${userName}`,
-        html: `
-          <h2>Nueva solicitud de acceso al sistema Eveca</h2>
-          <p><strong>Nombre completo del usuario:</strong> ${userName}</p>
-          <p><strong>Email del usuario:</strong> ${userEmail}</p>
-          <p><strong>Fecha y hora de la solicitud:</strong> ${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}</p>
-          <p>
-            <a href="${appUrl}/admin" style="background-color: #00c5dc; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-family: sans-serif;">
-              Ir al módulo de Administración
-            </a>
-          </p>
-        `,
-      });
-
-      if (error) {
-        console.error("Resend error:", error);
-        return res.status(400).json({ error });
-      }
-
-      res.status(200).json({ success: true, data });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Internal Server Error" });
-    }
-  });
-
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    // Production
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+  if (!userName || !userEmail) {
+    return res.status(400).json({ error: 'Faltan campos requeridos: userName, userEmail.' });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
+  if (!resend) {
+    console.error('RESEND_API_KEY is not configured in environment variables.');
+    return res.status(500).json({ error: 'El servidor de correo no está configurado.' });
+  }
 
-startServer();
+  try {
+    const timestamp = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+    const directUrl = `${appUrl || 'https://ais-dev-24q7edlfjh3p2ksro6ao62-440695687751.us-east1.run.app'}/administracion`;
+
+    const response = await resend.emails.send({
+      from: `Eveca Sistema <${fromEmail}>`,
+      to: 'wmartinezm360@gmail.com',
+      subject: `🔔 Nueva solicitud de acceso — ${userName}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #1f2937; border-radius: 8px; background-color: #0b0f19; color: #fff;">
+          <h2 style="color: #00c5dc; border-bottom: 1px solid #1f2937; padding-bottom: 10px;">Nueva Solicitud de Acceso</h2>
+          <p style="font-size: 16px;">Se ha registrado un usuario solicitando acceso al sistema de gestión de sostenibilidad <strong>Eveca S.A.S.</strong></p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 20px;">
+            <tr>
+              <td style="padding: 8px; font-weight: bold; color: #8b92a9; width: 140px;">Nombre:</td>
+              <td style="padding: 8px; color: #fff;">${userName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; font-weight: bold; color: #8b92a9;">Email:</td>
+              <td style="padding: 8px; color: #fff;">${userEmail}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; font-weight: bold; color: #8b92a9;">Fecha / Hora:</td>
+              <td style="padding: 8px; color: #fff;">${timestamp} (CO)</td>
+            </tr>
+          </table>
+
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="${directUrl}" style="background-color: #00c5dc; color: #0b0f19; font-weight: bold; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              Ir al Panel de Administración
+            </a>
+          </div>
+        </div>
+      `
+    });
+
+    if (response.error) {
+      console.error('Error from Resend SDK:', response.error);
+      return res.status(400).json({ error: response.error });
+    }
+
+    return res.status(200).json({ success: true, data: response.data });
+  } catch (error: any) {
+    console.error('Request Access Server error:', error);
+    return res.status(500).json({ error: error.message || 'Error interno del servidor.' });
+  }
+});
+
+// Serve frontend assets
+const distPath = path.join(__dirname, 'dist');
+app.use(express.static(distPath));
+
+// For SPA routing
+app.get('*', (req, res, next) => {
+  // Pass API routes
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
+// Configure standard server startup
+const PORT = 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Base server is serving fine on port ${PORT}`);
+});

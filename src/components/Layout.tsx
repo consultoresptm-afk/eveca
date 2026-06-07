@@ -1,228 +1,297 @@
-import React from 'react';
-import { Outlet, Navigate, Link, useLocation } from 'react-router';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLocation, Link, Outlet, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { 
   LayoutDashboard, 
-  Droplets, 
-  Leaf, 
+  Droplet, 
+  Activity, 
+  TreePine, 
   Settings, 
-  LogOut,
-  Menu,
-  X,
-  Users,
-  Globe,
-  TreePine,
-  Award,
-  ShieldAlert
+  Users, 
+  LogOut, 
+  Menu, 
+  X, 
+  ShieldAlert,
+  Building,
+  User,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
-import { cn } from '../lib/utils';
-import { supabase } from '../lib/supabase';
 
 export const Layout: React.FC = () => {
-  const { user, profile, loading, signOut, isSuperAdmin } = useAuth();
+  const { user, profile, loading, signOut, isSuperAdmin, setProfileState } = useAuth();
   const location = useLocation();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-  const [isSending, setIsSending] = React.useState(false);
-  const [successMessage, setSuccessMessage] = React.useState('');
+  const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [requestError, setRequestError] = useState('');
 
   const handleRequestAccess = async () => {
     if (!user) return;
     setIsSending(true);
+    setRequestError('');
     setSuccessMessage('');
     try {
-      // 1. Update in Supabase profiles
-      const { error } = await supabase
+      // 1. Update profiles in Supabase
+      const { error: dbError } = await supabase
         .from('profiles')
         .update({
           status: 'pending',
-          access_requested: true,
           access_requested_at: new Date().toISOString(),
           approval_requested: true
         })
         .eq('id', user.id);
 
-      if (error) {
-        console.error("Supabase update error:", error);
-        alert('No se pudo enviar la solicitud en la base de datos: ' + error.message);
-        setIsSending(false);
-        return;
+      if (dbError) {
+        throw new Error(`Error en base de datos: ${dbError.message}`);
       }
 
-      // 2. Call our safe backend endpoint using Resend
+      // 2. Refresh local profile cache to prevent double sending
+      if (profile) {
+        setProfileState({
+          ...profile,
+          status: 'pending',
+          approval_requested: true,
+          access_requested_at: new Date().toISOString()
+        });
+      }
+
+      // 3. Call server-side API proxy to send email via Resend
+      const appUrl = window.location.origin;
       const res = await fetch('/api/request-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user.id,
-          userName: profile?.name || user.email || 'Nuevo Usuario',
+          userName: profile?.name || user.email?.split('@')[0] || 'Usuario Nuevo',
           userEmail: user.email,
+          appUrl
         })
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        console.error("Failed to send email notification option:", errData);
+        const errorData = await res.json().catch(() => ({}));
+        console.warn("Resend email server proxy returned error status, but DB is updated:", errorData);
       }
 
       setSuccessMessage("✅ Solicitud enviada. La Jefatura de Sostenibilidad revisará tu acceso pronto.");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Ocurrió un error al enviar la solicitud.');
+      setRequestError(err.message || 'Ocurrió un error inesperado al tramitar tu solicitud.');
     } finally {
       setIsSending(false);
     }
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">Loading...</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00c5dc] mb-4"></div>
+        <p className="font-medium text-slate-400">Verificando sesión en Eveca...</p>
+      </div>
+    );
   }
 
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    // React Router will redirect, but safeguard in-render anyway
+    return null;
   }
 
-  // Allow passthrough for wmartinezm360@gmail.com and SUPERADMIN
-  const isExcluded = user?.email === 'wmartinezm360@gmail.com' || profile?.role === 'SUPERADMIN';
+  // Bypass modal gate for supreme admin & authenticated approved profiles
+  const isApproved = user.email === 'wmartinezm360@gmail.com' || profile?.status === 'approved' || profile?.role === 'SUPERADMIN';
 
-  if (!isExcluded && (!profile || profile.status !== 'approved')) {
-    const hasRequested = profile?.access_requested === true || profile?.approval_requested === true || !!successMessage;
+  if (!isApproved) {
+    const hasRequested = profile?.approval_requested === true || !!successMessage;
     
     return (
-      <div className="min-h-screen flex items-center justify-center dashboard-bg">
-        <div className="dash-card p-12 text-center max-w-lg mx-6">
-           <ShieldAlert className="h-16 w-16 text-[#ff3d60] mx-auto mb-6" />
-           <h2 className="text-2xl font-bold text-white mb-4">Acceso Pendiente / Denegado</h2>
-           <p className="text-[#8b92a9] mb-8">
-             Comuníquese con la jefatura de sostenibilidad para la aprobación de ingreso.
-           </p>
-           
-           <div className="flex flex-col gap-4">
-             {hasRequested ? (
-               <div className="bg-[#f8c851]/10 text-[#f8c851] p-4 rounded-md text-sm border border-[#f8c851]/20 mb-2">
-                 Solicitud ya enviada. Espera la aprobación.
-               </div>
-             ) : successMessage ? (
-               <div className="bg-[#11c46e]/10 text-[#11c46e] p-4 rounded-md text-sm border border-[#11c46e]/20 mb-2">
-                 {successMessage}
-               </div>
-             ) : null}
+      <div className="min-h-screen flex items-center justify-center dashboard-bg p-4">
+        <div className="dash-card p-8 md:p-12 text-center max-w-lg w-full relative overflow-hidden border border-slate-800">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#ff3d60]"></div>
+          
+          <div className="flex justify-center mb-6">
+            <div className="p-4 bg-[#ff3d60]/10 rounded-full text-[#ff3d60]">
+              <ShieldAlert className="h-12 w-12" />
+            </div>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-white mb-2">Acceso Pendiente / Denegado</h2>
+          <p className="text-slate-400 text-sm mb-6">
+            Para ingresar al sistema de sostenibilidad, tu usuario debe recibir la habilitación correspondiente de la gerencia.
+          </p>
 
-             <button 
-                onClick={handleRequestAccess}
-                disabled={hasRequested || isSending}
-                className="w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#00c5dc] hover:bg-[#00c5dc]/90 disabled:opacity-50 disabled:cursor-not-allowed"
-             >
-               {hasRequested ? 'Solicitud Enviada' : isSending ? 'Enviando...' : 'Solicitar Permiso'}
-             </button>
-             <button onClick={() => signOut()} className="w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#ff3d60] hover:bg-[#ff3d60]/90">
-               Cerrar Sesión
-             </button>
-           </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 mb-8 text-left text-xs text-slate-400 space-y-2">
+            <div className="flex gap-2">
+              <span className="text-[#00c5dc] font-bold">•</span>
+              <span><strong>Usuario:</strong> {user.email}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-[#00c5dc] font-bold">•</span>
+              <span><strong>Nombre:</strong> {profile?.name || 'Nuevo Ingreso'}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-[#00c5dc] font-bold">•</span>
+              <span><strong>Estado de Cuenta:</strong> <span className="text-amber-500 font-semibold uppercase">{profile?.status || 'Sin iniciar'}</span></span>
+            </div>
+          </div>
+           
+          <div className="flex flex-col gap-3">
+            {hasRequested ? (
+              <div className="bg-[#f8c851]/10 text-[#f8c851] p-4 rounded-md text-xs border border-[#f8c851]/20 flex items-center gap-2 text-left">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-[#f8c851]" />
+                <span>Solicitud ya enviada. Espera la aprobación de la Jefatura.</span>
+              </div>
+            ) : successMessage ? (
+              <div className="bg-[#11c46e]/10 text-[#11c46e] p-4 rounded-md text-xs border border-[#11c46e]/20 flex items-center gap-2 text-left">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-[#11c46e]" />
+                <span>{successMessage}</span>
+              </div>
+            ) : null}
+
+            {requestError && (
+              <div className="bg-[#ff3d60]/10 text-[#ff3d60] p-4 rounded-md text-left text-xs border border-[#ff3d60]/20">
+                {requestError}
+              </div>
+            )}
+
+            <button 
+              onClick={handleRequestAccess}
+              disabled={hasRequested || isSending}
+              className="w-full px-5 py-3 border border-transparent text-sm font-bold rounded-lg text-[#0b0f19] bg-[#00c5dc] hover:bg-[#00c5dc]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              {isSending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-[#0bf19] mr-1"></div>
+                  Procesando...
+                </>
+              ) : hasRequested ? (
+                'Solicitud Enviada'
+              ) : (
+                'Solicitar Permiso'
+              )}
+            </button>
+
+            <button 
+              onClick={() => signOut()} 
+              className="w-full px-5 py-3 border border-slate-700 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" /> Cerrar Sesión
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  const navigation = [
+  // Sidebar Links config
+  const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Efluentes', href: '/efluentes', icon: Droplets },
-    { name: 'Compostaje', href: '/compostaje', icon: Leaf },
-    { name: 'Gest. Ambiental', href: '/gestion-ambiental', icon: Globe },
-    { name: 'Zonas Verdes', href: '/zonas-verdes', icon: TreePine },
-    { name: 'Sostenibilidad', href: '/sostenibilidad', icon: Award },
+    { name: 'Efluentes', href: '/efluentes', icon: Droplet },
+    { name: 'Compostaje', href: '/compostaje', icon: Activity },
+    { name: 'Áreas Verdes', href: '/areas-verdes', icon: TreePine },
+    { name: 'Gestión Ambiental', href: '/gestion-ambiental', icon: Building },
+    { name: 'Setup BD', href: '/setup', icon: Settings },
   ];
 
   if (isSuperAdmin) {
-    navigation.push({ name: 'Administración', href: '/admin', icon: Users });
+    navItems.push({ name: 'Administración', href: '/administracion', icon: Users });
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Mobile Sidebar Overlay */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 z-20 bg-black/50 md:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#0b0f19]">
+      {/* Mobile Top Header */}
+      <header className="md:hidden flex justify-between items-center bg-slate-950 border-b border-slate-800 p-4 text-white z-50">
+        <div className="flex items-center gap-2">
+          <Building className="w-6 h-6 text-[#11c46e]" />
+          <span className="font-bold tracking-wide">EVECA S.A.S.</span>
+        </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 text-slate-400 hover:text-white focus:outline-none"
+        >
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </header>
 
-      {/* Sidebar */}
-      <div className={cn(
-        "fixed inset-y-0 left-0 z-30 w-64 bg-[#1a1a27] text-white transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col",
-        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        <div className="flex items-center justify-between p-4 border-b border-[#363952]">
-          <div className="flex items-center gap-2">
-            <div className="bg-[#27293d] p-1.5 rounded-md border border-[#363952]">
-                <span className="text-[#00c5dc] font-bold text-xl leading-none">Eveca</span>
+      {/* Main Sidebar */}
+      <aside className={`
+        fixed inset-y-0 left-0 bg-slate-950 border-r border-slate-800 w-64 p-6 flex flex-col justify-between z-40 transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:h-screen
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div>
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-8 hidden md:flex border-b border-slate-800/60 pb-6">
+            <div className="p-2 bg-[#11c46e]/10 text-[#11c46e] rounded-lg">
+              <Building className="w-6 h-6" />
             </div>
-            <span className="font-semibold text-sm leading-tight text-white">Jefatura<br/><span className="text-[#8b92a9]">Sostenibilidad</span></span>
+            <div>
+              <h2 className="font-bold text-white tracking-wider text-lg">EVECA</h2>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Sostenibilidad S.A.S.</p>
+            </div>
           </div>
-          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-[#8b92a9] hover:text-white">
-             <X size={24} />
-          </button>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto py-4">
-           <nav className="space-y-1 px-2">
-             {navigation.map((item) => {
-               const isActive = location.pathname === item.href;
-               return (
-                 <Link
-                   key={item.name}
-                   to={item.href}
-                   onClick={() => setIsMobileMenuOpen(false)}
-                   className={cn(
-                     "group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors",
-                     isActive ? "bg-[#27293d] text-white border-l-4 border-[#00c5dc] pl-1" : "text-[#8b92a9] hover:bg-[#27293d] hover:text-white"
-                   )}
-                 >
-                   <item.icon className={cn("mr-3 flex-shrink-0 h-5 w-5", isActive ? "text-[#00c5dc]" : "text-[#8b92a9] group-hover:text-white")} aria-hidden="true" />
-                   {item.name}
-                 </Link>
-               );
-             })}
-           </nav>
-        </div>
-        
-        <div className="p-4 border-t border-[#363952]">
-           <div className="flex items-center mb-4">
-             <div className="ml-3">
-               <p className="text-sm font-medium text-white">{profile?.name || user.email}</p>
-               <p className="text-xs font-medium text-[#8b92a9] capitalize">
-                 {profile?.role || 'User'}
-               </p>
-             </div>
-           </div>
-           <button
-             onClick={signOut}
-             className="flex items-center w-full px-2 py-2 text-sm font-medium text-[#8b92a9] rounded-md hover:bg-[#27293d] hover:text-white"
-           >
-             <LogOut className="mr-3 h-5 w-5" />
-             Cerrar Sesión
-           </button>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile Header */}
-        <div className="md:hidden bg-[#1a1a27] border-b border-[#363952] p-4 flex items-center justify-between">
-           <div className="flex items-center gap-2">
-            <span className="text-[#00c5dc] font-bold text-lg">Eveca</span>
-          </div>
-          <button onClick={() => setIsMobileMenuOpen(true)} className="text-[#8b92a9] hover:text-white">
-            <Menu size={24} />
-          </button>
+          {/* Navigation Links */}
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`
+                    flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all group
+                    ${isActive 
+                      ? 'bg-[#00c5dc]/10 text-[#00c5dc] border-l-2 border-[#00c5dc]' 
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'
+                    }
+                  `}
+                >
+                  <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-[#00c5dc]' : 'text-slate-400 group-hover:text-slate-200'}`} />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* Desktop Topbar area conceptually - taking focus on content */}
-        <main className="flex-1 relative z-0 overflow-y-auto focus:outline-none">
-          <div className="py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-            <Outlet />
+        {/* User Footer Profile & Sign Out */}
+        <div className="border-t border-slate-800 pt-6 mt-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[#00c5dc] font-bold">
+              <User className="w-5 h-5" />
+            </div>
+            <div className="overflow-hidden">
+              <h4 className="text-white text-sm font-bold truncate leading-tight">{profile?.name || user.email?.split('@')[0]}</h4>
+              <p className="text-slate-500 text-[11px] truncate leading-tight">{user.email}</p>
+              <div className="mt-1">
+                <span className="px-1.5 py-0.5 rounded text-[9px] bg-[#11c46e]/10 text-[#11c46e] border border-[#11c46e]/20 font-semibold uppercase">
+                  {profile?.role || 'LECTOR'}
+                </span>
+              </div>
+            </div>
           </div>
-        </main>
-      </div>
+
+          <button
+            onClick={() => {
+              signOut();
+              navigate('/login');
+            }}
+            className="flex items-center gap-3 px-4 py-2 w-full text-slate-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 border border-transparent rounded-lg text-sm font-medium transition-all"
+          >
+            <LogOut className="w-4 h-4 text-red-400" />
+            <span>Cerrar Sesión</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto max-h-[100vh] dashboard-bg p-6 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <Outlet />
+        </div>
+      </main>
     </div>
   );
 };
+export default Layout;

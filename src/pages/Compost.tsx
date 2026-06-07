@@ -1,119 +1,422 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { format } from 'date-fns';
+import { CompostLog } from '../types';
+import { 
+  Flame, 
+  Plus, 
+  AlertCircle, 
+  Trash2, 
+  Search, 
+  FileText, 
+  Paperclip, 
+  Upload, 
+  X,
+  Thermometer,
+  CloudRain,
+  CheckCircle2,
+  ExternalLink
+} from 'lucide-react';
 
 export default function Compost() {
-  const { profile } = useAuth();
-  const [logs, setLogs] = useState<any[]>([]);
-  
-  const [formData, setFormData] = useState({
-    date: format(new Date(), 'yyyy-MM-dd'),
-    tridecanter_cake: '',
-    process_sludge: '',
-    fiber: '',
-    boiler_ashes: '',
-    notes: ''
-  });
+  const { user } = useAuth();
+  const [logs, setLogs] = useState<CompostLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Form State
+  const [date, setDate] = useState(new Date().toISOString().substring(0, 10));
+  const [rawMaterial, setRawMaterial] = useState('');
+  const [temperature, setTemperature] = useState('');
+  const [humidity, setHumidity] = useState('');
+  const [turned, setTurned] = useState(false);
+  const [comments, setComments] = useState('');
+  const [attachedDocUrl, setAttachedDocUrl] = useState('');
+  const [attachedDocName, setAttachedDocName] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchLogs();
   }, []);
 
   const fetchLogs = async () => {
-    const { data } = await supabase
-      .from('compost_logs')
-      .select('*, profiles(name)')
-      .order('date', { ascending: false });
-    
-    if (data) setLogs(data);
+    setLoading(true);
+    setError('');
+    try {
+      const { data, error: fetchErr } = await supabase
+        .from('compost_logs')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (fetchErr) {
+        throw new Error(fetchErr.message);
+      }
+
+      setLogs((data || []) as CompostLog[]);
+    } catch (err: any) {
+      console.warn(err);
+      setError('No se pudieron recuperar los registros. Por favor verifique el script SQL en la pestaña "Setup BD".');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Por seguridad de la base de datos, el archivo no debe superar los 2MB. Por favor elija un documento comprimido.");
+      return;
+    }
+
+    setUploading(true);
+    setAttachedDocName(file.name);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setAttachedDocUrl(base64String);
+      setUploading(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('compost_logs').insert([
-      {
-        ...formData,
-        tridecanter_cake: Number(formData.tridecanter_cake),
-        process_sludge: Number(formData.process_sludge),
-        fiber: Number(formData.fiber),
-        boiler_ashes: Number(formData.boiler_ashes),
-        created_by: profile?.id
-      }
-    ]);
+    setError('');
+    setSuccess('');
 
-    if (!error) {
-      setFormData({ date: format(new Date(), 'yyyy-MM-dd'), tridecanter_cake: '', process_sludge: '', fiber: '', boiler_ashes: '', notes: '' });
+    if (!rawMaterial || !temperature || !humidity) {
+      setError('Por favor complete los campos de materia prima, temperatura y humedad.');
+      return;
+    }
+
+    try {
+      const newLogObj: Omit<CompostLog, 'id' | 'created_at'> = {
+        date: new Date(date).toISOString(),
+        raw_material_in: Number(rawMaterial),
+        temperature: Number(temperature),
+        humidity: Number(humidity),
+        turned,
+        comments,
+        attached_doc_url: attachedDocUrl || undefined,
+        attached_doc_name: attachedDocName || undefined,
+        created_by: user?.id,
+      };
+
+      const { error: insertError } = await supabase
+        .from('compost_logs')
+        .insert([newLogObj]);
+
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+
+      setSuccess('¡Registro de Compostaje guardado de forma robusta!');
+      
+      // Reset Form State
+      setRawMaterial('');
+      setTemperature('');
+      setHumidity('');
+      setTurned(false);
+      setComments('');
+      setAttachedDocUrl('');
+      setAttachedDocName('');
+
       fetchLogs();
-    } else {
-      alert('Error guardando registro');
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Error al guardar el registro de compost.');
     }
   };
+
+  const handleDelete = async (logId: string) => {
+    if (!window.confirm('¿Desea borrar este registro de compostaje?')) {
+      return;
+    }
+
+    try {
+      const { error: delErr } = await supabase
+        .from('compost_logs')
+        .delete()
+        .eq('id', logId);
+
+      if (delErr) {
+        throw new Error(delErr.message);
+      }
+
+      setLogs(prev => prev.filter(l => l.id !== logId));
+      setSuccess('Registro eliminado correctamente.');
+    } catch (err: any) {
+      alert('Error al borrar: ' + err.message);
+    }
+  };
+
+  const filteredLogs = logs.filter(log => {
+    return log.comments?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Gestión Planta de Compostaje</h1>
-        <p className="text-sm text-[#8b92a9]">Recepción de subproductos para transformación</p>
+        <h1 className="text-3xl font-extrabold text-white">Compostaje y Reciclaje Orgánico</h1>
+        <p className="text-slate-400 mt-1">Control de pilas de descomposición aerobica, humedades y volteos de materia biodegradable.</p>
       </div>
 
-      <div className="dash-card overflow-hidden">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-white mb-4">Ingreso de Subproductos Diarios</h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-6">
-             <div className="md:col-span-4 lg:col-span-1">
-              <label className="block text-sm font-medium text-[#8b92a9] mb-1">Fecha</label>
-              <input type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="input-field" />
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Registration Form */}
+        <div className="dash-card p-6 lg:col-span-1 self-start">
+          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <Plus className="w-5 h-5 text-[#11c46e]" /> Nueva Lectura de Pila
+          </h3>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-[#8b92a9] mb-1">Torta de Tridecanter (TM)</label>
-              <input type="number" step="0.01" required value={formData.tridecanter_cake} onChange={e => setFormData({...formData, tridecanter_cake: e.target.value})} className="input-field" />
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Fecha de Entrada/Medición</label>
+              <input
+                type="date"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="input-field"
+              />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Materia Prima (kg)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  required
+                  placeholder="Ej, 450"
+                  value={rawMaterial}
+                  onChange={(e) => setRawMaterial(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Temperatura (°C)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  required
+                  placeholder="35 - 65"
+                  value={temperature}
+                  onChange={(e) => setTemperature(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Humedad de Pila (%)</label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  required
+                  placeholder="40 - 60"
+                  value={humidity}
+                  onChange={(e) => setHumidity(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+
+              <div className="flex flex-col justify-end">
+                <label className="relative inline-flex items-center cursor-pointer min-h-[42px] px-2 select-none">
+                  <input 
+                    type="checkbox" 
+                    checked={turned}
+                    onChange={(e) => setTurned(e.target.checked)}
+                    className="sr-only peer" 
+                  />
+                  <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-slate-400 after:border-slate-500 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#11c46e] peer-checked:after:bg-slate-950"></div>
+                  <span className="ml-3 text-xs font-semibold text-slate-400">Pila Volteada</span>
+                </label>
+              </div>
+            </div>
+
             <div>
-              <label className="block text-sm font-medium text-[#8b92a9] mb-1">Lodos del Proceso (TM)</label>
-              <input type="number" step="0.01" required value={formData.process_sludge} onChange={e => setFormData({...formData, process_sludge: e.target.value})} className="input-field" />
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Observaciones</label>
+              <textarea
+                placeholder="Fase termófila, control de olores, calidad visual..."
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                className="input-field min-h-[80px]"
+              />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-[#8b92a9] mb-1">Fibra (TM)</label>
-              <input type="number" step="0.01" required value={formData.fiber} onChange={e => setFormData({...formData, fiber: e.target.value})} className="input-field" />
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Adjuntar Recibo / Balanza de Entrada (PDF/Img)</label>
+              <div className="border-2 border-dashed border-slate-700 bg-slate-950/40 hover:bg-slate-950/70 p-4 rounded-lg text-center cursor-pointer relative group transition-all">
+                <input 
+                  type="file" 
+                  accept="image/*,.pdf"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div className="flex flex-col items-center justify-center space-y-1">
+                  <Upload className="w-6 h-6 text-[#11c46e]" />
+                  <p className="text-xs text-slate-300 font-semibold">Cargar comprobante de compostaje</p>
+                  <p className="text-[10px] text-slate-500">Hasta 2MB de peso</p>
+                </div>
+              </div>
+
+              {attachedDocName && (
+                <div className="mt-3 flex items-center justify-between bg-slate-900 border border-slate-800 p-2 rounded-lg text-xs">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Paperclip className="w-4 h-4 text-[#11c46e] flex-shrink-0" />
+                    <span className="text-slate-300 truncate font-mono">{attachedDocName}</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => { setAttachedDocUrl(''); setAttachedDocName(''); }}
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-[#8b92a9] mb-1">Cenizas de Caldera (TM)</label>
-              <input type="number" step="0.01" required value={formData.boiler_ashes} onChange={e => setFormData({...formData, boiler_ashes: e.target.value})} className="input-field" />
-            </div>
-            <div className="md:col-span-4 flex justify-end">
-              <button type="submit" className="btn-primary">
-                Guardar Registro
-              </button>
-            </div>
+
+            {error && (
+              <div className="bg-[#ff3d60]/10 border border-[#ff3d60]/20 text-[#ff3d60] p-3 rounded-md text-xs flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-[#ff3d60]" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {success && (
+              <div className="bg-[#11c46e]/10 border border-[#11c46e]/20 text-[#11c46e] p-3 rounded-md text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-[#11c46e]" />
+                <span>{success}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={uploading}
+              className="w-full bg-[#11c46e] hover:bg-[#11c46e]/90 text-slate-950 font-bold py-2.5 rounded-lg text-xs tracking-wider transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40"
+            >
+              {uploading ? 'Procesando adjunto...' : 'Guardar Compost en BD'}
+            </button>
           </form>
         </div>
-      </div>
 
-      <div className="dash-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-[#363952]">
-            <thead className="bg-[#1a1a27]">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#8b92a9] uppercase tracking-wider">Fecha</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#8b92a9] uppercase tracking-wider">Torta Tridecanter</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#8b92a9] uppercase tracking-wider">Lodos</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#8b92a9] uppercase tracking-wider">Fibra</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#8b92a9] uppercase tracking-wider">Cenizas</th>
-              </tr>
-            </thead>
-            <tbody className="bg-[#1e1e2b] divide-y divide-[#363952]">
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#e2e8f0]">{format(new Date(log.date), 'dd/MM/yyyy')}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8b92a9]">{log.tridecanter_cake} TM</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8b92a9]">{log.process_sludge} TM</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8b92a9]">{log.fiber} TM</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8b92a9]">{log.boiler_ashes} TM</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Database List Display */}
+        <div className="dash-card p-6 lg:col-span-2">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Flame className="w-5 h-5 text-[#00c5dc]" /> Lista de Controles en Pila
+            </h3>
+
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 w-4.5 h-4.5 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Filtrar comentarios..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-slate-950 border border-slate-700 text-xs pl-8 pr-3 min-h-[36px] rounded-lg text-slate-300 w-full md:max-w-[200px]"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="p-12 text-center text-slate-400 flex flex-col items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#00c5dc] mb-2"></div>
+              <span>Recuperando base de datos de compostaje...</span>
+            </div>
+          ) : filteredLogs.length === 0 ? (
+            <div className="p-12 text-center text-slate-500 text-sm">
+              No hay lecturas de compost asignadas para este filtro. Ingrese una lectura para poblar la planilla.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-800 text-left">
+                <thead className="bg-[#0b0f19]">
+                  <tr>
+                    <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Fecha de Control</th>
+                    <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Entrada (kg)</th>
+                    <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Temperatura</th>
+                    <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Humedad</th>
+                    <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Volteada</th>
+                    <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Comprobante</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">Borrar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 bg-slate-900/25">
+                  {filteredLogs.map((log) => {
+                    const tempIsHigh = log.temperature > 65;
+                    const tempIsLow = log.temperature < 35;
+                    
+                    return (
+                      <tr key={log.id} className="hover:bg-slate-900/40 text-sm">
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-white">
+                          {new Date(log.date).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-xs font-mono font-bold text-slate-200">
+                          {log.raw_material_in?.toLocaleString('es-CO')} kg
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-xs">
+                          <span className={`inline-flex items-center gap-1 font-bold ${
+                            tempIsHigh ? 'text-orange-500' : tempIsLow ? 'text-blue-400' : 'text-[#11c46e]'
+                          }`}>
+                            <Thermometer className="w-3.5 h-3.5" /> {log.temperature}°C
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-xs">
+                          <span className="text-slate-300 font-bold flex items-center gap-1">
+                            <CloudRain className="w-3.5 h-3.5 text-blue-400" /> {log.humidity}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {log.turned ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#11c46e]/10 text-[#11c46e] border border-[#11c46e]/25 uppercase shadow">
+                              SÍ (Volteada)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500 uppercase">
+                              NO
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs max-w-[120px] truncate">
+                          {log.attached_doc_url ? (
+                            <a
+                              href={log.attached_doc_url}
+                              download={log.attached_doc_name || 'compost.pdf'}
+                              className="inline-flex items-center gap-1 text-[#00c5dc] hover:underline"
+                            >
+                              <FileText className="w-3.5 h-3.5" /> Comprobante <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          ) : (
+                            <span className="text-slate-650">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => log.id && handleDelete(log.id)}
+                            className="text-red-400 hover:text-white p-1 rounded hover:bg-red-500/15 transition-all active:scale-95"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

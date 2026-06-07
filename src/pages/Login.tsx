@@ -1,209 +1,191 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Navigate, useLocation } from 'react-router';
-import { supabase } from '../lib/supabase';
-import { Leaf } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Building, Mail, Lock, User, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function Login() {
-  const { user } = useAuth();
-  const location = useLocation();
+  const { signIn, signUp } = useAuth();
+  const navigate = useNavigate();
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  if (user) {
-    const from = location.state?.from?.pathname || '/';
-    return <Navigate to={from} replace />;
-  }
-
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     setError('');
     setSuccess('');
-    setLoading(true);
+
+    if (!email || !password) {
+      setError('Por favor, complete todos los campos.');
+      setLoading(false);
+      return;
+    }
 
     try {
-      if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
-        if (error) {
-          setError(error.message);
+      if (isLogin) {
+        // Sign In Flow
+        const { error: signInErr } = await signIn(email, password);
+        if (signInErr) {
+          setError(signInErr.message || 'Error de autenticación. Verifique sus credenciales.');
         } else {
-          if (data.user) {
-             const { error: profileError } = await supabase.from('profiles').insert([
-               { 
-                 id: data.user.id, 
-                 email: email, 
-                 name: name,
-                 role: email === 'wmartinezm360@gmail.com' ? 'SUPERADMIN' : 'PENDING', status: email === 'wmartinezm360@gmail.com' ? 'approved' : 'pending', access_requested: false, approval_requested: false 
-               }
-             ]);
-             if (profileError) {
-                 console.log("Profile creation may need manual attention depending on RLS setup.", profileError);
-             }
-          }
-          setSuccess('Cuenta creada exitosamente. Ahora puedes iniciar sesión.');
-          setIsSignUp(false);
+          navigate('/');
         }
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        // Sign Up Flow
+        if (!name) {
+          setError('El nombre completo es obligatorio.');
+          setLoading(false);
+          return;
+        }
 
-        if (error) {
-          setError(error.message);
-        } else if (data.user) {
-           // Notify admin
-           const { data: profile } = await supabase.from('profiles').select('name').eq('id', data.user.id).single();
-           const userName = profile?.name || 'Usuario';
-           
-           try {
-             await fetch('/api/notify-login', {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ email: data.user.email, name: userName })
-             });
-           } catch (e) {
-             console.error("Error sending login notification:", e);
-           }
+        const { error: signUpErr } = await signUp(email, password, name);
+        if (signUpErr) {
+          setError(signUpErr.message || 'Error al registrar la cuenta.');
+        } else {
+          setSuccess('¡Registro realizado con éxito! Su cuenta está en estado PENDIENTE. Por favor solicite la aprobación en la pantalla siguiente.');
+          setIsLogin(true);
         }
       }
-    } catch (err) {
-      setError('Ocurrió un error inesperado.');
+    } catch (err: any) {
+      setError(err.message || 'Ocurrió un error inesperado al procesar.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-           <div className="bg-green-900 p-3 rounded-xl shadow-lg">
-             <Leaf className="h-12 w-12 text-white" />
-           </div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-12 sm:px-6 lg:px-8 dashboard-bg">
+      <div className="max-w-md w-full space-y-8">
+        {/* Brand Banner */}
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 bg-[#11c46e]/10 text-[#11c46e] rounded-full flex items-center justify-center mb-4 border border-[#11c46e]/20">
+            <Building className="h-6 w-6" />
+          </div>
+          <h2 className="text-3xl font-extrabold text-white tracking-tight">Eveca</h2>
+          <p className="mt-1 text-sm text-slate-400 font-medium">Jefatura de Sostenibilidad y Control de Efluentes</p>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 flex flex-col items-center">
-          <span>Eveca</span>
-          <span className="text-xl font-medium text-gray-500 mt-1">Jefatura de Sostenibilidad</span>
-        </h2>
-      </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100">
-          <form className="space-y-6" onSubmit={handleAuth}>
+        {/* Auth Card */}
+        <div className="dash-card p-8 border border-slate-800">
+          <div className="mb-6 flex justify-center gap-4 border-b border-slate-800 pb-4">
+            <button
+              onClick={() => {
+                setIsLogin(true);
+                setError('');
+                setSuccess('');
+              }}
+              className={`pb-2 text-sm font-semibold transition-all ${
+                isLogin ? 'text-[#00c5dc] border-b-2 border-[#00c5dc]' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Iniciar Sesión
+            </button>
+            <button
+              onClick={() => {
+                setIsLogin(false);
+                setError('');
+                setSuccess('');
+              }}
+              className={`pb-2 text-sm font-semibold transition-all ${
+                !isLogin ? 'text-[#11c46e] border-b-2 border-[#11c46e]' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Registrarse como Nuevo
+            </button>
+          </div>
+
+          <form className="space-y-4" onSubmit={handleSubmit}>
             {error && (
-              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md text-red-700 text-sm">
-                {error}
-              </div>
-            )}
-            
-            {success && (
-              <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-md text-green-700 text-sm">
-                {success}
+              <div className="bg-[#ff3d60]/10 border border-[#ff3d60]/20 text-[#ff3d60] p-3 rounded-md text-xs flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-[#ff3d60]" />
+                <span>{error}</span>
               </div>
             )}
 
-            {isSignUp && (
+            {success && (
+              <div className="bg-[#11c46e]/10 border border-[#11c46e]/20 text-[#11c46e] p-3 rounded-md text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-[#11c46e]" />
+                <span>{success}</span>
+              </div>
+            )}
+
+            {!isLogin && (
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                  Nombre Completo
-                </label>
-                <div className="mt-1">
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Nombre Completo</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <User className="h-4 w-4" />
+                  </div>
                   <input
-                    id="name"
-                    name="name"
                     type="text"
-                    required={isSignUp}
+                    required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    className="input-field pl-10"
+                    placeholder="Ej, Wilson Martinez"
                   />
                 </div>
               </div>
             )}
-            
+
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Correo Electrónico
-              </label>
-              <div className="mt-1">
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Correo Electrónico</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <Mail className="h-4 w-4" />
+                </div>
                 <input
-                  id="email"
-                  name="email"
                   type="email"
-                  autoComplete="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  className="input-field pl-10"
+                  placeholder="usuario@dominio.com"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Contraseña
-              </label>
-              <div className="mt-1">
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Contraseña</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <Lock className="h-4 w-4" />
+                </div>
                 <input
-                  id="password"
-                  name="password"
                   type="password"
-                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  className="input-field pl-10"
+                  placeholder="••••••••"
                 />
               </div>
             </div>
 
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-800 hover:bg-green-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-              >
-                {loading ? 'Procesando...' : (isSignUp ? 'Registrar Cuenta' : 'Iniciar Sesión')}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full py-3 rounded-lg text-[#0b0f19] font-bold text-sm transition-all focus:outline-none flex items-center justify-center gap-2 active:scale-95 disabled:opacity-40
+                ${isLogin ? 'bg-[#00c5dc] hover:bg-[#00c5dc]/90' : 'bg-[#11c46e] hover:bg-[#11c46e]/90'}
+              `}
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-slate-900"></div>
+                  Procesando...
+                </>
+              ) : isLogin ? (
+                'Iniciar Sesión'
+              ) : (
+                'Crear Cuenta'
+              )}
+            </button>
           </form>
-          
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">¿No tienes cuenta?</span>
-              </div>
-            </div>
-
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setError('');
-                  setSuccess('');
-                }}
-                className="font-medium text-green-700 hover:text-green-600"
-              >
-                {isSignUp ? 'Ya tengo una cuenta, iniciar sesión' : 'Registrarse como Nuevo Usuario'}
-              </button>
-            </div>
-          </div>
-          
-
         </div>
       </div>
     </div>

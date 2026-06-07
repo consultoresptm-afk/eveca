@@ -1,8 +1,20 @@
-node_modules/
-build/
-dist/
-coverage/
-.DS_Store
+# logs
+logs
 *.log
-.env*
-!.env.example
+npm-debug.log*
+
+# runtime envs
+.env
+.env.local
+.env.*.local
+
+# dependency directories
+node_modules/
+jspm_packages/
+
+# build directories
+dist/
+tmp/
+out/
+.vercel
+*~
