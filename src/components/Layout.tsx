@@ -247,10 +247,10 @@ export const Layout: React.FC = () => {
     { name: 'Compostaje', href: '/compostaje', icon: Activity },
     { name: 'Áreas Verdes', href: '/areas-verdes', icon: TreePine },
     { name: 'Gestión Ambiental', href: '/gestion-ambiental', icon: Building },
-    { name: 'Setup BD', href: '/setup', icon: Settings },
   ];
 
   if (isSuperAdmin) {
+    navItems.push({ name: 'Setup BD', href: '/setup', icon: Settings });
     navItems.push({ name: 'Administración', href: '/administracion', icon: Users });
   }
 

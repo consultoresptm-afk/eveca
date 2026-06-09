@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase, testDatabaseConnection } from '../lib/supabase';
-import { Database, CheckCircle, XCircle, AlertTriangle, RefreshCw, Copy, Check } from 'lucide-react';
+import { Database, CheckCircle, XCircle, AlertTriangle, RefreshCw, Copy, Check, ShieldAlert } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Setup() {
+  const { isSuperAdmin } = useAuth();
   const [connectionStatus, setConnectionStatus] = useState<'testing' | 'success' | 'failed'>('testing');
   const [errorMessage, setErrorMessage] = useState('');
   const [verifiedTables, setVerifiedTables] = useState<Record<string, boolean>>({});
@@ -217,8 +219,22 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.green_areas_logs;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.sustainability_indicators;`;
 
   useEffect(() => {
-    runDatabaseTests();
-  }, []);
+    if (isSuperAdmin) {
+      runDatabaseTests();
+    }
+  }, [isSuperAdmin]);
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 bg-slate-900 border border-slate-800 rounded-2xl">
+        <ShieldAlert className="w-16 h-16 text-[#ff3d60] mb-4" />
+        <h2 className="text-2xl font-bold text-white mb-2">Acceso Restringido</h2>
+        <p className="text-slate-400 max-w-md">
+          Esta sección de configuración técnica de base de datos solo está disponible para el Administrador Supremo de Sostenibilidad (<code className="bg-slate-950 p-1 rounded font-mono text-xs">wmartinezm360@gmail.com</code>).
+        </p>
+      </div>
+    );
+  }
 
   const runDatabaseTests = async () => {
     setIsVerifying(true);
