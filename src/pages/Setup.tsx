@@ -32,6 +32,17 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS approval_requested boolean 
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_status_check;
 
+-- Creación de función SECURITY DEFINER para verificar si es súper administrador sin causar recursión RLS
+CREATE OR REPLACE FUNCTION public.is_superadmin(user_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = user_id AND role = 'SUPERADMIN'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Habilitar RLS en profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
@@ -51,18 +62,21 @@ CREATE POLICY "Usuarios pueden actualizar su propio perfil" ON public.profiles
 DROP POLICY IF EXISTS "Permitir actualizaciones para súper administradores" ON public.profiles;
 CREATE POLICY "Permitir actualizaciones para súper administradores" ON public.profiles
   FOR UPDATE TO authenticated USING (
+    auth.email() = 'wmartinezm360@gmail.com' OR
     auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
+    public.is_superadmin(auth.uid())
   ) WITH CHECK (
+    auth.email() = 'wmartinezm360@gmail.com' OR
     auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
+    public.is_superadmin(auth.uid())
   );
 
 DROP POLICY IF EXISTS "Permitir eliminación para súper administradores" ON public.profiles;
 CREATE POLICY "Permitir eliminación para súper administradores" ON public.profiles
   FOR DELETE TO authenticated USING (
+    auth.email() = 'wmartinezm360@gmail.com' OR
     auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
+    public.is_superadmin(auth.uid())
   );
 
 -- Función para crear perfil automáticamente al registrar usuario en Supabase Auth

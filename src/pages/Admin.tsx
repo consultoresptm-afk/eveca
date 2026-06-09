@@ -22,22 +22,36 @@ const ADMIN_SQL_SCRIPT = `-- 0. Eliminar restricciones de verificación antiguas
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_status_check;
 
--- 1. Políticas de RLS actualizadas con doble verificación de Súper Administrador (email y rol de base de datos)
+-- 1. Creación de función SECURITY DEFINER para verificar si es súper administrador sin causar recursión RLS
+CREATE OR REPLACE FUNCTION public.is_superadmin(user_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = user_id AND role = 'SUPERADMIN'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 2. Políticas de RLS actualizadas basadas en email y el rol de súper administrador (sin recursión)
 DROP POLICY IF EXISTS "Permitir actualizaciones para súper administradores" ON public.profiles;
 CREATE POLICY "Permitir actualizaciones para súper administradores" ON public.profiles
   FOR UPDATE TO authenticated USING (
+    auth.email() = 'wmartinezm360@gmail.com' OR
     auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
+    public.is_superadmin(auth.uid())
   ) WITH CHECK (
+    auth.email() = 'wmartinezm360@gmail.com' OR
     auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
+    public.is_superadmin(auth.uid())
   );
 
 DROP POLICY IF EXISTS "Permitir eliminación para súper administradores" ON public.profiles;
 CREATE POLICY "Permitir eliminación para súper administradores" ON public.profiles
   FOR DELETE TO authenticated USING (
+    auth.email() = 'wmartinezm360@gmail.com' OR
     auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
+    public.is_superadmin(auth.uid())
   );
 
 -- 2. Función para crear perfil automáticamente al registrar usuario en Supabase Auth
