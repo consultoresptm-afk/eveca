@@ -105,7 +105,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // 1. Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.warn("Auth session error. Clearing local session state:", error);
+        try {
+          const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('sb-'));
+          keysToRemove.forEach(k => localStorage.removeItem(k));
+        } catch (e) {}
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
       if (session?.user) {
         setUser(session.user);
         fetchProfile(session.user.id, session.user.email || '').finally(() => setLoading(false));
@@ -114,6 +125,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile(null);
         setLoading(false);
       }
+    }).catch(err => {
+      console.error("Critical error in getSession:", err);
+      setLoading(false);
     });
 
     // 2. Listen to auth changes
@@ -181,9 +195,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn("Error calling auth.signOut():", e);
+    } finally {
+      setUser(null);
+      setProfile(null);
+      try {
+        const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('sb-'));
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch (e) {}
+    }
   };
 
   return (

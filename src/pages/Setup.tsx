@@ -28,6 +28,10 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS access_requested boolean DE
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS access_requested_at timestamp with time zone;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS approval_requested boolean DEFAULT false;
 
+-- Eliminar restricciones de verificación antiguas si existen para evitar violaciones de check constraint
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_status_check;
+
 -- Habilitar RLS en profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
@@ -47,16 +51,56 @@ CREATE POLICY "Usuarios pueden actualizar su propio perfil" ON public.profiles
 DROP POLICY IF EXISTS "Permitir actualizaciones para súper administradores" ON public.profiles;
 CREATE POLICY "Permitir actualizaciones para súper administradores" ON public.profiles
   FOR UPDATE TO authenticated USING (
-    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com'
+    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
   ) WITH CHECK (
-    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com'
+    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
   );
 
 DROP POLICY IF EXISTS "Permitir eliminación para súper administradores" ON public.profiles;
 CREATE POLICY "Permitir eliminación para súper administradores" ON public.profiles
   FOR DELETE TO authenticated USING (
-    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com'
+    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
   );
+
+-- Función para crear perfil automáticamente al registrar usuario en Supabase Auth
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, name, role, status, approval_requested, access_requested_at)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
+    CASE WHEN new.email = 'wmartinezm360@gmail.com' THEN 'SUPERADMIN' ELSE 'PENDING' END,
+    CASE WHEN new.email = 'wmartinezm360@gmail.com' THEN 'approved' ELSE 'pending' END,
+    FALSE,
+    NULL
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger asociado a auth.users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Sincronizar/Backfill cualquier usuario que ya esté registrado en de auth.users y no tenga perfil aún
+INSERT INTO public.profiles (id, email, name, role, status, approval_requested, access_requested_at)
+SELECT 
+  id,
+  email,
+  COALESCE(raw_user_meta_data->>'name', split_part(email, '@', 1)),
+  CASE WHEN email = 'wmartinezm360@gmail.com' THEN 'SUPERADMIN' ELSE 'PENDING' END,
+  CASE WHEN email = 'wmartinezm360@gmail.com' THEN 'approved' ELSE 'pending' END,
+  FALSE,
+  NULL
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;
 
 -- 2. TABLA DE EFLUENTES (effluents_logs)
 CREATE TABLE IF NOT EXISTS public.effluents_logs (

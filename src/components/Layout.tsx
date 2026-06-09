@@ -34,22 +34,70 @@ export const Layout: React.FC = () => {
     setRequestError('');
     setSuccessMessage('');
     try {
-      // 1. Execute a direct UPDATE as requested to update approval_requested and access_requested_at
+      // 1. Execute a direct UPDATE to mark request as active
       console.log("DEBUG: Iniciando actualización de acceso para id = ", user.id);
-      const { error: dbError } = await supabase
+      let { data: updatedData, error: dbError } = await supabase
         .from('profiles')
         .update({
           approval_requested: true,
           access_requested_at: new Date().toISOString()
         })
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select();
 
       if (dbError) {
-        console.error("DEBUG: Falló el UPDATE en la tabla profiles:", dbError);
-        throw new Error(`Error en base de datos al solicitar acceso: ${dbError.message} (Código de error: ${dbError.code || 'N/A'})`);
+        console.warn("DEBUG: El UPDATE en la tabla profiles reportó un error preliminar, intentando inserción:", dbError);
       }
 
-      console.log("DEBUG: UPDATE de perfil en Supabase ejecutado correctamente.");
+      // If the profile did not return from update (either because it doesn't exist OR RLS select limits returned rows),
+      // we attempt to insert it. If the insertion fails with a duplicate key, we know the row exists and was updated!
+      if (!updatedData || updatedData.length === 0) {
+        console.log("DEBUG: El perfil no retornó del UPDATE (0 filas o RLS). Realizando INSERT...");
+        const userNameValue = profile?.name || user.email?.split('@')[0] || 'Nuevo Usuario';
+        const { data: insertedData, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: user.email || '',
+            name: userNameValue,
+            status: 'pending',
+            approval_requested: true,
+            access_requested_at: new Date().toISOString(),
+            role: 'PENDING'
+          })
+          .select();
+
+        if (insertError) {
+          const isDuplicateKey = insertError.code === '23505' || 
+                                 insertError.message?.toLowerCase().includes('duplicate key') ||
+                                 insertError.message?.toLowerCase().includes('already exists') ||
+                                 insertError.message?.toLowerCase().includes('unique constraint');
+
+          if (isDuplicateKey) {
+            console.log("DEBUG: El perfil ya existía en la base de datos (INSERT falló con llave duplicada). Ejecutando UPDATE de respaldo...");
+            // Run a clean fallback UPDATE without requiring .select() to succeed
+            const { error: fallbackUpdateError } = await supabase
+              .from('profiles')
+              .update({
+                approval_requested: true,
+                access_requested_at: new Date().toISOString()
+              })
+              .eq('id', user.id);
+            
+            if (fallbackUpdateError) {
+              console.error("DEBUG: Falló el UPDATE de respaldo de acceso:", fallbackUpdateError);
+              throw new Error(`Error en base de datos al solicitar acceso: ${fallbackUpdateError.message}`);
+            }
+          } else {
+            console.error("DEBUG: Falló el INSERT del perfil en la tabla profiles:", insertError);
+            throw new Error(`Error en base de datos al inicializar tu perfil y solicitar acceso: ${insertError.message}`);
+          }
+        } else {
+          console.log("DEBUG: Perfil insertado exitosamente con solicitud de acceso activa:", insertedData);
+        }
+      } else {
+        console.log("DEBUG: UPDATE de perfil en Supabase ejecutado correctamente sobre registro existente.");
+      }
 
       // 2. Refresh local profile cache to prevent double sending and show pending status immediately
       const userNameValue = profile?.name || user.email?.split('@')[0] || 'Nuevo Usuario';
@@ -235,7 +283,7 @@ export const Layout: React.FC = () => {
             </div>
             <div>
               <h2 className="font-bold text-white tracking-wider text-lg">EVECA</h2>
-              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Sostenibilidad S.A.S.</p>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Jefatura de Sostenibilidad</p>
             </div>
           </div>
 

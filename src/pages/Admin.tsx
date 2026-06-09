@@ -11,8 +11,71 @@ import {
   AlertCircle, 
   Search, 
   RefreshCw,
-  Clock
+  Clock,
+  Copy,
+  Check,
+  HelpCircle,
+  Database
 } from 'lucide-react';
+
+const ADMIN_SQL_SCRIPT = `-- 0. Eliminar restricciones de verificación antiguas si existen para evitar violaciones de check constraint
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_status_check;
+
+-- 1. Políticas de RLS actualizadas con doble verificación de Súper Administrador (email y rol de base de datos)
+DROP POLICY IF EXISTS "Permitir actualizaciones para súper administradores" ON public.profiles;
+CREATE POLICY "Permitir actualizaciones para súper administradores" ON public.profiles
+  FOR UPDATE TO authenticated USING (
+    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
+  ) WITH CHECK (
+    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
+  );
+
+DROP POLICY IF EXISTS "Permitir eliminación para súper administradores" ON public.profiles;
+CREATE POLICY "Permitir eliminación para súper administradores" ON public.profiles
+  FOR DELETE TO authenticated USING (
+    auth.jwt() ->> 'email' = 'wmartinezm360@gmail.com' OR
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPERADMIN'
+  );
+
+-- 2. Función para crear perfil automáticamente al registrar usuario en Supabase Auth
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, name, role, status, approval_requested, access_requested_at)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
+    CASE WHEN new.email = 'wmartinezm360@gmail.com' THEN 'SUPERADMIN' ELSE 'PENDING' END,
+    CASE WHEN new.email = 'wmartinezm360@gmail.com' THEN 'approved' ELSE 'pending' END,
+    FALSE,
+    NULL
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. Trigger asociado a auth.users para automatizar futuros registros
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 4. Sincronizar/Backfill inmediato de usuarios que ya están en auth.users pero no tienen perfil público
+INSERT INTO public.profiles (id, email, name, role, status, approval_requested, access_requested_at)
+SELECT 
+  id,
+  email,
+  COALESCE(raw_user_meta_data->>'name', split_part(email, '@', 1)),
+  CASE WHEN email = 'wmartinezm360@gmail.com' THEN 'SUPERADMIN' ELSE 'PENDING' END,
+  CASE WHEN email = 'wmartinezm360@gmail.com' THEN 'approved' ELSE 'pending' END,
+  FALSE,
+  NULL
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;`;
 
 export default function Admin() {
   const { user: currentAuthUser, isSuperAdmin } = useAuth();
@@ -21,6 +84,8 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showSqlHelp, setShowSqlHelp] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -44,6 +109,12 @@ export default function Admin() {
     }
   };
 
+  const copySqlToClipboard = () => {
+    navigator.clipboard.writeText(ADMIN_SQL_SCRIPT);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   useEffect(() => {
     if (isSuperAdmin) {
       fetchUsers();
@@ -56,17 +127,27 @@ export default function Admin() {
       // If the current role remains PENDING, we elevate them to EDITOR for active editing
       const targetRole = currentRole === 'PENDING' ? 'EDITOR' : currentRole;
       
-      const { error: updateErr } = await supabase
+      const { data: updatedData, error: updateErr } = await supabase
         .from('profiles')
         .update({
           role: targetRole,
           status: 'approved',
           approval_requested: false
         })
-        .eq('id', profileId);
+        .eq('id', profileId)
+        .select();
 
       if (updateErr) {
         throw new Error(updateErr.message);
+      }
+
+      if (!updatedData || updatedData.length === 0) {
+        throw new Error(
+          "La actualización no se guardó en la base de datos (0 filas modificadas). " +
+          "Esto ocurre porque la política de seguridad (RLS) de Supabase ha bloqueado el comando. " +
+          "Por favor, asegúrate de haber copiado y ejecutado correctamente el script de trigger y políticas SQL " +
+          "que se muestra en el recuadro amarillo de abajo en tu Supabase SQL Editor para otorgarle permisos de escritura permanente al administrador."
+        );
       }
 
       // Live update locally
@@ -89,13 +170,22 @@ export default function Admin() {
 
     setActionLoading(profileId);
     try {
-      const { error: deleteErr } = await supabase
+      const { data: deletedData, error: deleteErr } = await supabase
         .from('profiles')
         .delete()
-        .eq('id', profileId);
+        .eq('id', profileId)
+        .select();
 
       if (deleteErr) {
         throw new Error(deleteErr.message);
+      }
+
+      if (!deletedData || deletedData.length === 0) {
+        throw new Error(
+          "No se pudo eliminar el perfil de la base de datos (0 filas afectadas). " +
+          "La política de seguridad (RLS) ha bloqueado la eliminación de este registro. " +
+          "Asegúrese de haber ejecutado el script SQL proveído para otorgarle permisos de eliminación permanentes al administrador supremo."
+        );
       }
 
       setUsers(prev => prev.filter(u => u.id !== profileId));
@@ -185,6 +275,51 @@ export default function Admin() {
           <span>{error}</span>
         </div>
       )}
+
+      {/* Cartel Informativo de Sincronización SQL */}
+      <div className="dash-card border border-[#f8c851]/20 bg-[#f8c851]/5 p-5">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="flex gap-3">
+            <HelpCircle className="w-5 h-5 text-[#f8c851] flex-shrink-0 mt-1" />
+            <div>
+              <h3 className="font-bold text-white text-base">⚠️ ¿No ves a los usuarios nuevos en el panel?</h3>
+              <p className="text-slate-300 text-sm mt-1">
+                Los usuarios registrados en Supabase Auth necesitan que se cree un perfil público en la tabla <code className="bg-slate-900/80 px-1.5 py-0.5 text-[#f8c851] font-mono text-xs rounded border border-slate-800">profiles</code> para aparecer aquí.
+              </p>
+              <p className="text-slate-400 text-sm mt-2">
+                Puedes <strong>sincronizar de inmediato</strong> los usuarios actuales (como <code className="text-[#00c5dc] font-semibold">consultoresptm@gmail.com</code>) y automatizar futuros registros pegando un pequeño comando script en tu <strong>Supabase SQL Editor</strong>:
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setShowSqlHelp(!showSqlHelp)}
+            className="text-slate-300 hover:text-white text-xs font-bold px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-md whitespace-nowrap active:scale-95 transition-all self-start"
+          >
+            {showSqlHelp ? "Ocultar Script" : "Mostrar Script SQL"}
+          </button>
+        </div>
+
+        {showSqlHelp && (
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-300 bg-slate-950 p-3 rounded-t-lg border-b border-slate-800">
+              <span className="flex items-center gap-2"><Database className="w-4 h-4 text-[#11c46e]" /> SCRIPT TRIGGER Y DE SINCRONIZACIÓN AUTOMÁTICA</span>
+              <button 
+                onClick={copySqlToClipboard}
+                className="inline-flex items-center gap-1.5 bg-[#00c5dc] hover:bg-[#00c5dc]/90 text-slate-950 px-3.5 py-1.5 rounded font-bold transition-all active:scale-95 text-[11px]"
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? '¡Copiado!' : 'Copiar Script SQL'}
+              </button>
+            </div>
+            <pre className="text-xs font-mono p-4 bg-slate-950 text-[#11c46e] border border-slate-900 rounded-b-lg overflow-x-auto max-h-[220px] scrollbar-thin">
+{ADMIN_SQL_SCRIPT}
+            </pre>
+            <p className="text-xs text-amber-300 italic flex items-center gap-1">
+              <span>💡 Pega y corre este script en la pestaña de <strong>SQL Editor</strong> en Supabase, luego haz clic aquí arriba en <strong>"Recargar"</strong> y tus nuevos usuarios y solicitudes aparecerán inmediatamente.</span>
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* User Table Base */}
       <div className="dash-card overflow-hidden">
