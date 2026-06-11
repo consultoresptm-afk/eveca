@@ -148,6 +148,7 @@ ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS pome_to_biodigester n
 ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS temperature numeric;
 ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS volumetry numeric;
 ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS volumetry_unit text;
+ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS attached_doc_name text;
 
 ALTER TABLE public.effluents_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo a autenticados en effluents" ON public.effluents_logs;
