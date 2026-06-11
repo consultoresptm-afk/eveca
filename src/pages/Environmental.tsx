@@ -66,14 +66,14 @@ export default function Environmental() {
       const newIndicator: any = {
         month,
         created_by: user?.id,
-        water_consumption: waterConsumption ? Number(waterConsumption) : null,
-        energy_consumption: energyConsumption ? Number(energyConsumption) : null,
-        organic_waste: organicWaste ? Number(organicWaste) : null,
-        hazardous_waste: hazardousWaste ? Number(hazardousWaste) : null,
-        recyclable_waste: recyclableWaste ? Number(recyclableWaste) : null,
       };
 
-      // Check if entry for this day already exists to overwrite or block
+      if (waterConsumption) newIndicator.water_consumption = Number(waterConsumption);
+      if (energyConsumption) newIndicator.energy_consumption = Number(energyConsumption);
+      if (organicWaste) newIndicator.organic_waste = Number(organicWaste);
+      if (hazardousWaste) newIndicator.hazardous_waste = Number(hazardousWaste);
+      if (recyclableWaste) newIndicator.recyclable_waste = Number(recyclableWaste);
+
       const { data: existing } = await supabase
         .from('sustainability_indicators')
         .select('id')
@@ -81,22 +81,26 @@ export default function Environmental() {
         .maybeSingle();
 
       if (existing) {
-        if (!window.confirm(`Ya existe un registro para el día ${formatDateFull(month)}. ¿Desea sobrescribirlo en la base de datos?`)) {
+        if (!window.confirm(`Ya existe un registro para el día ${formatDateFull(month)}. ¿Desea actualizar solo los campos ingresados?`)) {
           return;
         }
-        const { error: updErr } = await supabase
+
+        const { error: updateError } = await supabase
           .from('sustainability_indicators')
-          .delete()
+          .update(newIndicator)
           .eq('id', existing.id);
-        if (updErr) throw new Error(updErr.message);
-      }
 
-      const { error: insertError } = await supabase
-        .from('sustainability_indicators')
-        .insert([newIndicator]);
+        if (updateError) {
+          throw new Error(updateError.message);
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('sustainability_indicators')
+          .insert([newIndicator]);
 
-      if (insertError) {
-        throw new Error(insertError.message);
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
       }
 
       setSuccess('¡Indicadores de gestión ambiental actualizados con éxito!');
