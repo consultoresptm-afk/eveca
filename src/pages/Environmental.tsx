@@ -172,7 +172,7 @@ export default function Environmental() {
   const chartData = filtered.map(ind => ({
     name: formatDateShort(ind.month),
     'Agua m³ x10': (ind.water_consumption || 0) * 10,
-    'Energía kWh /100': (ind.energy_consumption || 0) / 100,
+    'Energía kW /100': (ind.energy_consumption || 0) / 100,
     'Residuos Orgánicos (kg)': ind.organic_waste || 0,
     'Residuos Peligrosos (kg)': ind.hazardous_waste || 0,
     'Residuos Aprovechables (kg)': ind.recyclable_waste || 0
@@ -220,7 +220,7 @@ export default function Environmental() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Consumo Eléctrico (kWh)</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Consumo Eléctrico (kW)</label>
                 <input
                   type="number"
                   step="1"
@@ -333,7 +333,7 @@ export default function Environmental() {
                     <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }} />
                     <Legend />
                     <Bar dataKey="Agua m³ x10" fill="#00c5dc" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Energía kWh /100" fill="#f8c851" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Energía kW /100" fill="#f8c851" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Residuos Orgánicos (kg)" fill="#11c46e" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Residuos Peligrosos (kg)" fill="#ff3d60" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Residuos Aprovechables (kg)" fill="#a855f7" radius={[4, 4, 0, 0]} />
@@ -363,7 +363,7 @@ export default function Environmental() {
                     <tr key={ind.id} className="hover:bg-slate-900/40 text-slate-300">
                       <td className="px-4 py-2.5 font-bold text-white">{formatDateFull(ind.month)}</td>
                       <td className="px-4 py-2.5 font-mono text-blue-400 font-semibold">{ind.water_consumption} m³</td>
-                      <td className="px-4 py-2.5 font-mono text-amber-500 font-semibold">{ind.energy_consumption?.toLocaleString('es-CO')} kWh</td>
+                      <td className="px-4 py-2.5 font-mono text-amber-500 font-semibold">{ind.energy_consumption?.toLocaleString('es-CO')} kW</td>
                       <td className="px-4 py-2.5 font-mono text-[#11c46e] font-semibold">{(ind.organic_waste || 0).toLocaleString('es-CO')} kg</td>
                       <td className="px-4 py-2.5 font-mono text-red-400 font-semibold">{(ind.hazardous_waste || 0).toLocaleString('es-CO')} kg</td>
                       <td className="px-4 py-2.5 font-mono text-purple-400 font-semibold">{(ind.recyclable_waste || 0).toLocaleString('es-CO')} kg</td>

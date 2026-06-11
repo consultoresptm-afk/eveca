@@ -346,7 +346,7 @@ export default function Dashboard() {
         const susData = susRes.data.map(item => ({
           "Período (Mes)": item.month,
           "Consumo de Agua (m³)": item.water_consumption !== null ? Number(item.water_consumption) : 0,
-          "Consumo Eléctrico (kWh)": item.energy_consumption !== null ? Number(item.energy_consumption) : 0,
+          "Consumo Eléctrico (kW)": item.energy_consumption !== null ? Number(item.energy_consumption) : 0,
           "Residuos Orgánicos (kg)": item.organic_waste !== null ? Number(item.organic_waste) : 0,
           "Residuos Peligrosos (kg)": item.hazardous_waste !== null ? Number(item.hazardous_waste) : 0,
           "Residuos Aprovechables (kg)": item.recyclable_waste !== null ? Number(item.recyclable_waste) : 0,
@@ -662,7 +662,7 @@ export default function Dashboard() {
                 <Leaf className="w-5 h-5 text-emerald-400" />
                 Histórico de Consumo de Recursos (Agua y Energía)
               </h3>
-              <p className="text-slate-400 text-xs mt-0.5">Evolución mensual combinada del consumo de electricidad (kWh) y agua potable (m³)</p>
+              <p className="text-slate-400 text-xs mt-0.5">Evolución mensual combinada del consumo de electricidad (kW) y agua potable (m³)</p>
             </div>
             <span className="px-2.5 py-1 bg-slate-800 text-slate-400 rounded-full text-[10px] font-bold uppercase w-fit">
               {hasResourceData ? 'Datos de Planta Consolidados' : 'Sin Datos en la BD'}
@@ -704,12 +704,12 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                   <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
                   <YAxis yAxisId="left" stroke="#3b82f6" fontSize={11} tickFormatter={(v) => `${v} m³`} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#eab308" fontSize={11} tickFormatter={(v) => `${v} kWh`} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#eab308" fontSize={11} tickFormatter={(v) => `${v} kW`} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }}
                     formatter={(value, name) => {
                       if (name === "Consumo de Agua") return [`${Number(value).toLocaleString('es-CO')} m³`, name];
-                      if (name === "Consumo de Energía") return [`${Number(value).toLocaleString('es-CO')} kWh`, name];
+                      if (name === "Consumo de Energía") return [`${Number(value).toLocaleString('es-CO')} kW`, name];
                       return [value, name];
                     }}
                   />
