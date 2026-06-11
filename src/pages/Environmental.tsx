@@ -142,9 +142,17 @@ export default function Environmental() {
   };
 
   // Format date labels
+  const parseLocalDate = (dateString: string) => {
+    const [year, monthStr, dayStr] = dateString.split('-');
+    const yearNum = Number(year);
+    const monthNum = Number(monthStr) - 1;
+    const dayNum = Number(dayStr);
+    return new Date(yearNum, monthNum, dayNum);
+  };
+
   const formatDateFull = (d: string) => {
     try {
-      const dt = new Date(d);
+      const dt = parseLocalDate(d);
       return dt.toLocaleDateString('es-CO'); // DD/MM/YYYY
     } catch (e) {
       return d;
@@ -153,7 +161,7 @@ export default function Environmental() {
 
   const formatDateShort = (d: string) => {
     try {
-      const dt = new Date(d);
+      const dt = parseLocalDate(d);
       const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
       return `${String(dt.getDate()).padStart(2, '0')}/${months[dt.getMonth()]}`;
     } catch (e) {
@@ -166,7 +174,7 @@ export default function Environmental() {
     const now = new Date();
     const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     return items.filter(i => {
-      const d = new Date(i.month);
+      const d = parseLocalDate(i.month);
       return d >= cutoff && d <= now;
     });
   };
