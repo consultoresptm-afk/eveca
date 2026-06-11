@@ -151,22 +151,17 @@ export default function Environmental() {
   };
 
   const formatDateFull = (d: string) => {
-    try {
-      const dt = parseLocalDate(d);
-      return dt.toLocaleDateString('es-CO'); // DD/MM/YYYY
-    } catch (e) {
-      return d;
-    }
+    const [year, monthStr, dayStr] = d.split('-');
+    if (!year || !monthStr || !dayStr) return d;
+    return `${dayStr}/${monthStr}/${year}`;
   };
 
   const formatDateShort = (d: string) => {
-    try {
-      const dt = parseLocalDate(d);
-      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-      return `${String(dt.getDate()).padStart(2, '0')}/${months[dt.getMonth()]}`;
-    } catch (e) {
-      return d;
-    }
+    const [year, monthStr, dayStr] = d.split('-');
+    if (!year || !monthStr || !dayStr) return d;
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const monthIndex = Number(monthStr) - 1;
+    return `${String(dayStr).padStart(2, '0')}/${months[monthIndex] ?? monthStr}`;
   };
 
   const filterByRange = (items: typeof indicators, days: number) => {
