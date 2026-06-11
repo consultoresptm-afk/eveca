@@ -18,3 +18,5 @@ tmp/
 out/
 .vercel
 *~
+package-lock.json
+package-lock.json
