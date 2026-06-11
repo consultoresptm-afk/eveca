@@ -57,20 +57,20 @@ export default function Environmental() {
     setError('');
     setSuccess('');
 
-    if (!waterConsumption || !energyConsumption || !organicWaste || !hazardousWaste || !recyclableWaste) {
-      setError('Por favor complete todos los indicadores de gestión ambiental del día.');
+    if (![waterConsumption, energyConsumption, organicWaste, hazardousWaste, recyclableWaste].some(Boolean)) {
+      setError('Por favor ingrese al menos un indicador (agua, energía o residuos).');
       return;
     }
 
     try {
-      const newIndicator: Omit<SustainabilityIndicator, 'id' | 'created_at'> = {
+      const newIndicator: any = {
         month,
-        water_consumption: Number(waterConsumption),
-        energy_consumption: Number(energyConsumption),
-        organic_waste: Number(organicWaste),
-        hazardous_waste: Number(hazardousWaste),
-        recyclable_waste: Number(recyclableWaste),
         created_by: user?.id,
+        water_consumption: waterConsumption ? Number(waterConsumption) : null,
+        energy_consumption: energyConsumption ? Number(energyConsumption) : null,
+        organic_waste: organicWaste ? Number(organicWaste) : null,
+        hazardous_waste: hazardousWaste ? Number(hazardousWaste) : null,
+        recyclable_waste: recyclableWaste ? Number(recyclableWaste) : null,
       };
 
       // Check if entry for this day already exists to overwrite or block
@@ -211,7 +211,6 @@ export default function Environmental() {
                 <input
                   type="number"
                   step="0.1"
-                  required
                   placeholder="Ej, 85"
                   value={waterConsumption}
                   onChange={(e) => setWaterConsumption(e.target.value)}
@@ -224,7 +223,6 @@ export default function Environmental() {
                 <input
                   type="number"
                   step="1"
-                  required
                   placeholder="Ej, 4200"
                   value={energyConsumption}
                   onChange={(e) => setEnergyConsumption(e.target.value)}
@@ -239,7 +237,6 @@ export default function Environmental() {
                 <input
                   type="number"
                   step="1"
-                  required
                   placeholder="Ej, 1200"
                   value={organicWaste}
                   onChange={(e) => setOrganicWaste(e.target.value)}
@@ -252,7 +249,6 @@ export default function Environmental() {
                 <input
                   type="number"
                   step="1"
-                  required
                   placeholder="Ej, 45"
                   value={hazardousWaste}
                   onChange={(e) => setHazardousWaste(e.target.value)}
@@ -266,7 +262,6 @@ export default function Environmental() {
               <input
                 type="number"
                 step="1"
-                required
                 placeholder="Ej, 650"
                 value={recyclableWaste}
                 onChange={(e) => setRecyclableWaste(e.target.value)}
@@ -362,11 +357,11 @@ export default function Environmental() {
                   {filtered.map((ind) => (
                     <tr key={ind.id} className="hover:bg-slate-900/40 text-slate-300">
                       <td className="px-4 py-2.5 font-bold text-white">{formatDateFull(ind.month)}</td>
-                      <td className="px-4 py-2.5 font-mono text-blue-400 font-semibold">{ind.water_consumption} m³</td>
-                      <td className="px-4 py-2.5 font-mono text-amber-500 font-semibold">{ind.energy_consumption?.toLocaleString('es-CO')} kW</td>
-                      <td className="px-4 py-2.5 font-mono text-[#11c46e] font-semibold">{(ind.organic_waste || 0).toLocaleString('es-CO')} kg</td>
-                      <td className="px-4 py-2.5 font-mono text-red-400 font-semibold">{(ind.hazardous_waste || 0).toLocaleString('es-CO')} kg</td>
-                      <td className="px-4 py-2.5 font-mono text-purple-400 font-semibold">{(ind.recyclable_waste || 0).toLocaleString('es-CO')} kg</td>
+                      <td className="px-4 py-2.5 font-mono text-blue-400 font-semibold">{ind.water_consumption != null ? `${ind.water_consumption} m³` : '-'}</td>
+                      <td className="px-4 py-2.5 font-mono text-amber-500 font-semibold">{ind.energy_consumption != null ? `${ind.energy_consumption.toLocaleString('es-CO')} kW` : '-'}</td>
+                      <td className="px-4 py-2.5 font-mono text-[#11c46e] font-semibold">{ind.organic_waste != null ? `${ind.organic_waste.toLocaleString('es-CO')} kg` : '-'}</td>
+                      <td className="px-4 py-2.5 font-mono text-red-400 font-semibold">{ind.hazardous_waste != null ? `${ind.hazardous_waste.toLocaleString('es-CO')} kg` : '-'}</td>
+                      <td className="px-4 py-2.5 font-mono text-purple-400 font-semibold">{ind.recyclable_waste != null ? `${ind.recyclable_waste.toLocaleString('es-CO')} kg` : '-'}</td>
                       <td className="px-4 py-2.5 text-center">
                         <button
                           onClick={() => ind.id && handleDelete(ind.id)}
