@@ -399,7 +399,7 @@ export default function Effluents() {
                   placeholder="Ej, 35.5"
                   value={temperature}
                   onChange={(e) => setTemperature(e.target.value)}
-                  className="input-field"
+                  className="input-field w-full"
                 />
               </div>
               <div>
@@ -416,7 +416,7 @@ export default function Effluents() {
                   <select
                     value={volumetryUnit}
                     onChange={(e) => setVolumetryUnit(e.target.value)}
-                    className="input-field cursor-pointer w-10 font-semibold text-xs px-1"
+                    className="cursor-pointer w-auto font-semibold text-xs px-1 bg-slate-950 border border-slate-700 text-slate-300 rounded"
                   >
                     <option value="L">L</option>
                     <option value="m3">m³</option>
