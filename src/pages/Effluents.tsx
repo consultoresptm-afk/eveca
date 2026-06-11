@@ -43,6 +43,11 @@ export default function Effluents() {
   const [biodigesterDestination, setBiodigesterDestination] = useState('BD1');
   const [pomeToBiodigester, setPomeToBiodigester] = useState('');
 
+  // Temperature and Volumetry fields
+  const [temperature, setTemperature] = useState('');
+  const [volumetry, setVolumetry] = useState('');
+  const [volumetryUnit, setVolumetryUnit] = useState('L');
+
   useEffect(() => {
     fetchLogs();
   }, []);
@@ -126,11 +131,6 @@ export default function Effluents() {
     setError('');
     setSuccess('');
 
-    if (!ph) {
-      setError('Por favor digite la medición de pH.');
-      return;
-    }
-
     const isOilTank = tank === 'TK2';
 
     if (isOilTank) {
@@ -157,7 +157,10 @@ export default function Effluents() {
         tank,
         oil_level: isOilTank ? Number(oilLevel) : undefined,
         recovered_oil: isOilTank && recoveredOil ? Number(recoveredOil) : undefined,
-        ph: Number(ph),
+        ph: ph ? Number(ph) : undefined,
+        temperature: temperature ? Number(temperature) : undefined,
+        volumetry: volumetry ? Number(volumetry) : undefined,
+        volumetry_unit: volumetry ? volumetryUnit : undefined,
         comments,
         attached_doc_url: attachedDocUrl || undefined,
         attached_doc_name: attachedDocName || undefined,
@@ -191,6 +194,9 @@ export default function Effluents() {
       setSentToBiodigester(false);
       setBiodigesterDestination('BD1');
       setPomeToBiodigester('');
+      setTemperature('');
+      setVolumetry('');
+      setVolumetryUnit('L');
 
       // Refresh list
       fetchLogs();
@@ -372,18 +378,53 @@ export default function Effluents() {
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Potencial de Hidrógeno (pH)</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Potencial de Hidrógeno (pH) <span className="text-slate-500 font-normal">(Opcional)</span></label>
               <input
                 type="number"
                 step="0.1"
                 min="0"
                 max="14"
-                required
                 placeholder="pH recomendado: 6.5 - 8.5"
                 value={ph}
                 onChange={(e) => setPH(e.target.value)}
                 className="input-field"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Temperatura (°C)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="Ej, 35.5"
+                  value={temperature}
+                  onChange={(e) => setTemperature(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Volumetría</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Volumen"
+                    value={volumetry}
+                    onChange={(e) => setVolumetry(e.target.value)}
+                    className="input-field flex-1"
+                  />
+                  <select
+                    value={volumetryUnit}
+                    onChange={(e) => setVolumetryUnit(e.target.value)}
+                    className="input-field cursor-pointer w-20 font-semibold"
+                  >
+                    <option value="L">L</option>
+                    <option value="m3">m³</option>
+                    <option value="dm3">dm³</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div>
@@ -513,6 +554,8 @@ export default function Effluents() {
                       <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">POME Ingreso (m³)</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Filtro / Biodigester</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">pH</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Temp (°C)</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Volumetría</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Obs / Adjuntos</th>
                       <th className="px-4 py-3 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">Acción</th>
                     </tr>
@@ -570,6 +613,20 @@ export default function Effluents() {
                             }`}>
                               {log.ph}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs font-mono text-slate-300">
+                            {log.temperature !== undefined && log.temperature !== null ? (
+                              <span>{log.temperature}°C</span>
+                            ) : (
+                              <span className="text-slate-600 italic">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-mono text-slate-300">
+                            {log.volumetry !== undefined && log.volumetry !== null ? (
+                              <span>{log.volumetry} {log.volumetry_unit}</span>
+                            ) : (
+                              <span className="text-slate-600 italic">-</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-xs text-slate-400 max-w-[150px]">
                             <div className="truncate" title={log.comments}>{log.comments || 'Sin observaciones'}</div>

@@ -18,6 +18,9 @@ export interface EffluentLog {
   oil_level?: number;
   recovered_oil?: number;
   ph?: number;
+  temperature?: number;
+  volumetry?: number;
+  volumetry_unit?: string;
   comments?: string;
   attached_doc_url?: string;
   attached_doc_name?: string;

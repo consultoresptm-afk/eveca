@@ -126,6 +126,9 @@ CREATE TABLE IF NOT EXISTS public.effluents_logs (
   oil_level numeric,
   recovered_oil numeric,
   ph numeric,
+  temperature numeric,
+  volumetry numeric,
+  volumetry_unit text,
   comments text,
   attached_doc_url text,
   attached_doc_name text,
@@ -142,6 +145,9 @@ ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS pome_input numeric;
 ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS sent_to_biodigester boolean DEFAULT false;
 ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS biodigester_destination text;
 ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS pome_to_biodigester numeric;
+ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS temperature numeric;
+ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS volumetry numeric;
+ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS volumetry_unit text;
 
 ALTER TABLE public.effluents_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo a autenticados en effluents" ON public.effluents_logs;
