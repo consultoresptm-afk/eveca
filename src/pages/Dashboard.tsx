@@ -134,32 +134,24 @@ export default function Dashboard() {
           totalWasteAprovechado: totalWasteVal,
         });
 
-        // Pull effluents for trend chart
+        // Pull effluents for trend chart (include date, tank and pome_input)
         const { data: effluentsData } = await supabase
           .from('effluents_logs')
-          .select('date, ph, recovered_oil, oil_level')
+          .select('date, ph, recovered_oil, oil_level, pome_input, tank')
           .order('date', { ascending: true });
 
         if (effluentsData && effluentsData.length > 0) {
-          const grouped: Record<string, { name: string, ph: number, recovered: number, count: number }> = {};
-          const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
-          effluentsData.forEach(item => {
+          const formattedEffluents = effluentsData.map((item: any) => {
             const d = new Date(item.date);
-            const month = monthNames[d.getMonth()];
-            if (!grouped[month]) {
-              grouped[month] = { name: month, ph: 0, recovered: 0, count: 0 };
-            }
-            grouped[month].ph += Number(item.ph) || 0;
-            grouped[month].recovered += Number(item.recovered_oil) || 0;
-            grouped[month].count += 1;
+            const dayMonth = d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit' });
+            return {
+              // X axis and tooltip will show date + tank, e.g. "11/06 · TK1"
+              name: `${dayMonth} · ${item.tank}`,
+              ph: Number(item.ph) || 0,
+              recovered: Number(item.recovered_oil) || 0,
+              pome: Number(item.pome_input) || 0,
+            };
           });
-
-          const formattedEffluents = Object.values(grouped).map(g => ({
-            name: g.name,
-            ph: Number((g.ph / g.count).toFixed(1)),
-            recovered: Number(g.recovered.toFixed(1))
-          }));
 
           setEffluentChartData(formattedEffluents);
           setHasEffluentData(formattedEffluents.length > 0);
@@ -585,10 +577,16 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                   <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
                   <YAxis stroke="#6b7280" fontSize={11} />
-                  <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }} />
+                  <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }} formatter={(value, name) => {
+                    if (name === 'POME Ingresado') return [`${Number(value).toLocaleString('es-CO')} m³`, name];
+                    if (name === 'Aceite Recuperado (L)') return [`${Number(value).toLocaleString('es-CO')} L`, name];
+                    if (name === 'Promedio pH') return [value, name];
+                    return [value, name];
+                  }} />
                   <Legend iconType="circle" />
                   <Area type="monotone" name="Promedio pH" dataKey="ph" stroke="#00c5dc" strokeWidth={2} fillOpacity={1} fill="url(#colorPH)" />
                   <Area type="monotone" name="Aceite Recuperado (L)" dataKey="recovered" stroke="#11c46e" strokeWidth={2} fillOpacity={1} fill="url(#colorRec)" />
+                  <Area type="monotone" name="POME Ingresado" dataKey="pome" stroke="#f59e0b" strokeWidth={2} fillOpacity={0.15} fill="#f59e0b" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
