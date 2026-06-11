@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { 
   TrendingUp, Droplet, Flame, TreePine, FileText, CheckCircle2, ChevronRight, Recycle,
-  FileSpreadsheet, Camera, Loader2
+  FileSpreadsheet, Camera, Loader2, Zap, Leaf
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
@@ -32,6 +32,8 @@ export default function Dashboard() {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingImage, setIsExportingImage] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>('');
+  const [resourceChartData, setResourceChartData] = useState<any[]>([]);
+  const [hasResourceData, setHasResourceData] = useState(false);
 
   useEffect(() => {
     const updateClock = () => {
@@ -84,10 +86,11 @@ export default function Dashboard() {
           }
         }
 
-        // Pull sustainability indicators totals for waste KPI
+        // Pull sustainability indicators totals for waste KPI and resource consumption chart
         const { data: indicators } = await supabase
           .from('sustainability_indicators')
-          .select('organic_waste, recyclable_waste');
+          .select('month, water_consumption, energy_consumption, organic_waste, recyclable_waste')
+          .order('month', { ascending: true });
 
         let totalWasteVal = 0;
         if (indicators && indicators.length > 0) {
@@ -96,6 +99,30 @@ export default function Dashboard() {
             const rec = Number(curr.recyclable_waste) || 0;
             return acc + org + rec;
           }, 0);
+
+          const monthNamesFull = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+          const formattedRes = indicators.map(item => {
+            let label = item.month;
+            if (item.month && item.month.includes('-')) {
+              const parts = item.month.split('-');
+              const yearShort = parts[0].substring(2);
+              const mIdx = parseInt(parts[1], 10) - 1;
+              if (mIdx >= 0 && mIdx < 12) {
+                label = `${monthNamesFull[mIdx]} '${yearShort}`;
+              }
+            }
+            return {
+              name: label,
+              water: Number(item.water_consumption) || 0,
+              energy: Number(item.energy_consumption) || 0,
+              monthRaw: item.month
+            };
+          });
+          setResourceChartData(formattedRes);
+          setHasResourceData(formattedRes.some(r => r.water > 0 || r.energy > 0));
+        } else {
+          setResourceChartData([]);
+          setHasResourceData(false);
         }
 
         setStats({
@@ -621,6 +648,76 @@ export default function Dashboard() {
                   <span className="text-white font-bold">{(item.value || 0).toLocaleString('es-CO')} kg</span>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Consumo de Recursos (Agua y Energía) */}
+      <div className="grid grid-cols-1 gap-6">
+        <div className="dash-card p-6">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+            <div>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Leaf className="w-5 h-5 text-emerald-400" />
+                Histórico de Consumo de Recursos (Agua y Energía)
+              </h3>
+              <p className="text-slate-400 text-xs mt-0.5">Evolución mensual combinada del consumo de electricidad (kWh) y agua potable (m³)</p>
+            </div>
+            <span className="px-2.5 py-1 bg-slate-800 text-slate-400 rounded-full text-[10px] font-bold uppercase w-fit">
+              {hasResourceData ? 'Datos de Planta Consolidados' : 'Sin Datos en la BD'}
+            </span>
+          </div>
+
+          {!hasResourceData ? (
+            <div className="h-[280px] w-full flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-950/20 p-6 text-center">
+              <div className="flex gap-3 mb-3 text-slate-500">
+                <div className="p-3 bg-blue-500/10 text-blue-400 rounded-full">
+                  <Droplet className="w-6 h-6" />
+                </div>
+                <div className="p-3 bg-amber-500/10 text-amber-500 rounded-full">
+                  <Zap className="w-6 h-6 animate-pulse" />
+                </div>
+              </div>
+              <h4 className="text-white font-bold text-sm">Historial de Consumo Vacío</h4>
+              <p className="text-slate-400 text-xs max-w-md mt-1">
+                No se han registrado consumos en los indicadores de sostenibilidad mensual todavía. Ingrese datos bajo el módulo de Gestión Ambiental para visualizar e interactuar con esta gráfica.
+              </p>
+              <Link to="/gestion-ambiental" className="mt-4 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 rounded-lg text-xs font-bold font-sans transition-all">
+                Registrar Consumos Mensuales
+              </Link>
+            </div>
+          ) : (
+            <div className="h-[320px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={resourceChartData} margin={{ top: 15, right: 15, left: 5, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="colorWater" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorEnergy" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#eab308" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#eab308" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
+                  <YAxis yAxisId="left" stroke="#3b82f6" fontSize={11} tickFormatter={(v) => `${v} m³`} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#eab308" fontSize={11} tickFormatter={(v) => `${v} kWh`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }}
+                    formatter={(value, name) => {
+                      if (name === "Consumo de Agua") return [`${Number(value).toLocaleString('es-CO')} m³`, name];
+                      if (name === "Consumo de Energía") return [`${Number(value).toLocaleString('es-CO')} kWh`, name];
+                      return [value, name];
+                    }}
+                  />
+                  <Legend iconType="circle" />
+                  <Area yAxisId="left" type="monotone" name="Consumo de Agua" dataKey="water" stroke="#3b82f6" strokeWidth={2.5} fillOpacity={1} fill="url(#colorWater)" />
+                  <Area yAxisId="right" type="monotone" name="Consumo de Energía" dataKey="energy" stroke="#eab308" strokeWidth={2.5} fillOpacity={1} fill="url(#colorEnergy)" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           )}
         </div>
