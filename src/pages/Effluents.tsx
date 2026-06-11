@@ -163,7 +163,6 @@ export default function Effluents() {
         volumetry_unit: volumetry ? volumetryUnit : undefined,
         comments,
         attached_doc_url: attachedDocUrl || undefined,
-        attached_doc_name: attachedDocName || undefined,
         created_by: user?.id,
         // POME field values
         pome_input: !isOilTank && pomeInput ? Number(pomeInput) : undefined,
@@ -633,7 +632,7 @@ export default function Effluents() {
                             {log.attached_doc_url ? (
                               <a
                                 href={log.attached_doc_url}
-                                download={log.attached_doc_name || 'evidencia.pdf'}
+                                download="evidencia.pdf"
                                 className="inline-flex items-center gap-1 text-[#00c5dc] hover:underline mt-1 text-[10px]"
                               >
                                 <FileText className="w-3.5 h-3.5" /> Ver Adjunto <ExternalLink className="w-2.5 h-2.5" />
