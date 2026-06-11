@@ -411,12 +411,12 @@ export default function Effluents() {
                     placeholder="Volumen"
                     value={volumetry}
                     onChange={(e) => setVolumetry(e.target.value)}
-                    className="input-field flex-1"
+                    className="input-field flex-1 min-w-0"
                   />
                   <select
                     value={volumetryUnit}
                     onChange={(e) => setVolumetryUnit(e.target.value)}
-                    className="input-field cursor-pointer w-12 font-semibold"
+                    className="input-field cursor-pointer w-10 font-semibold text-xs px-1"
                   >
                     <option value="L">L</option>
                     <option value="m3">m³</option>
