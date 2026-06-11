@@ -416,7 +416,7 @@ export default function Effluents() {
                   <select
                     value={volumetryUnit}
                     onChange={(e) => setVolumetryUnit(e.target.value)}
-                    className="input-field cursor-pointer w-14 font-semibold"
+                    className="input-field cursor-pointer w-12 font-semibold"
                   >
                     <option value="L">L</option>
                     <option value="m3">m³</option>
