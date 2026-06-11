@@ -19,8 +19,8 @@ export default function Environmental() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Form State
-  const [month, setMonth] = useState(new Date().toISOString().substring(0, 7)); // 'YYYY-MM'
+  // Form State (day granularity)
+  const [month, setMonth] = useState(new Date().toISOString().substring(0, 10)); // 'YYYY-MM-DD'
   const [waterConsumption, setWaterConsumption] = useState('');
   const [energyConsumption, setEnergyConsumption] = useState('');
   const [organicWaste, setOrganicWaste] = useState('');
@@ -31,13 +31,15 @@ export default function Environmental() {
     fetchIndicators();
   }, []);
 
+  const [rangeDays, setRangeDays] = useState<number>(30); // default: last month
+
   const fetchIndicators = async () => {
     setError('');
     try {
       const { data, error: fetchErr } = await supabase
         .from('sustainability_indicators')
         .select('*')
-        .order('month', { ascending: true });
+        .order('month', { ascending: false });
 
       if (fetchErr) {
         throw new Error(fetchErr.message);
@@ -56,7 +58,7 @@ export default function Environmental() {
     setSuccess('');
 
     if (!waterConsumption || !energyConsumption || !organicWaste || !hazardousWaste || !recyclableWaste) {
-      setError('Por favor complete todos los indicadores de gestión ambiental del mes.');
+      setError('Por favor complete todos los indicadores de gestión ambiental del día.');
       return;
     }
 
@@ -71,7 +73,7 @@ export default function Environmental() {
         created_by: user?.id,
       };
 
-      // Check if entry for this month already exists to overwrite or block
+      // Check if entry for this day already exists to overwrite or block
       const { data: existing } = await supabase
         .from('sustainability_indicators')
         .select('id')
@@ -79,7 +81,7 @@ export default function Environmental() {
         .maybeSingle();
 
       if (existing) {
-        if (!window.confirm(`Ya existe un registro para el mes de ${month}. ¿Desea sobrescribirlo en la base de datos?`)) {
+        if (!window.confirm(`Ya existe un registro para el día ${formatDateFull(month)}. ¿Desea sobrescribirlo en la base de datos?`)) {
           return;
         }
         const { error: updErr } = await supabase
@@ -114,7 +116,7 @@ export default function Environmental() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('¿Desea eliminar la lectura mensual de indicadores?')) {
+    if (!window.confirm('¿Desea eliminar la lectura de indicadores para este día?')) {
       return;
     }
 
@@ -135,18 +137,40 @@ export default function Environmental() {
     }
   };
 
-  // Format month label standard, e.g. '2026-06' -> 'Jun 2026'
-  const getMonthLabel = (m: string) => {
-    const parts = m.split('-');
-    if (parts.length < 2) return m;
-    const year = parts[0];
-    const monthIndex = parseInt(parts[1], 10) - 1;
-    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    return `${months[monthIndex]} ${year}`;
+  // Format date labels
+  const formatDateFull = (d: string) => {
+    try {
+      const dt = new Date(d);
+      return dt.toLocaleDateString('es-CO'); // DD/MM/YYYY
+    } catch (e) {
+      return d;
+    }
   };
 
-  const chartData = indicators.map(ind => ({
-    name: getMonthLabel(ind.month),
+  const formatDateShort = (d: string) => {
+    try {
+      const dt = new Date(d);
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      return `${String(dt.getDate()).padStart(2, '0')}/${months[dt.getMonth()]}`;
+    } catch (e) {
+      return d;
+    }
+  };
+
+  const filterByRange = (items: typeof indicators, days: number) => {
+    if (!days) return items;
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return items.filter(i => {
+      const d = new Date(i.month);
+      return d >= cutoff && d <= now;
+    });
+  };
+
+  const filtered = filterByRange(indicators, rangeDays);
+
+  const chartData = filtered.map(ind => ({
+    name: formatDateShort(ind.month),
     'Agua m³ x10': (ind.water_consumption || 0) * 10,
     'Energía kWh /100': (ind.energy_consumption || 0) / 100,
     'Residuos Orgánicos (kg)': ind.organic_waste || 0,
@@ -166,14 +190,14 @@ export default function Environmental() {
         {/* Registration Form */}
         <div className="dash-card p-6 lg:col-span-1 self-start">
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <Plus className="w-5 h-5 text-purple-400" /> Ingresar Registro Mensual
+            <Plus className="w-5 h-5 text-purple-400" /> Ingresar Registro Diario
           </h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1">Período de Medición</label>
               <input
-                type="month"
+                type="date"
                 required
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
@@ -268,21 +292,36 @@ export default function Environmental() {
               type="submit"
               className="w-full bg-[#00c5dc] hover:bg-[#00c5dc]/90 text-slate-950 font-bold py-2.5 rounded-lg text-xs tracking-wider transition-all hover:scale-[1.02] active:scale-95"
             >
-              Guardar Indicadores del Período
+              Guardar Registro del Día
             </button>
           </form>
         </div>
-
         {/* List & Visualization Charts */}
         <div className="dash-card p-6 lg:col-span-2 space-y-6">
-          <div>
+          <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
               <BarChart2 className="w-5 h-5 text-purple-400" /> Historial de Huella de Impacto
             </h3>
 
-            {indicators.length === 0 ? (
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-slate-400">Rango</label>
+              <select
+                value={String(rangeDays)}
+                onChange={(e) => setRangeDays(Number(e.target.value))}
+                className="input-field text-xs"
+              >
+                <option value={7}>Última semana</option>
+                <option value={30}>Último mes</option>
+                <option value={90}>Últimos 3 meses</option>
+                <option value={0}>Todo</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            {filtered.length === 0 ? (
               <div className="p-12 text-center text-slate-500 text-sm bg-slate-950/20 rounded-lg">
-                No hay lecturas cargadas para graficar. Introduzca un período en el formulario lateral para visualizar tendencias.
+                No hay lecturas cargadas para graficar. Introduzca un día en el formulario lateral para visualizar tendencias.
               </div>
             ) : (
               <div className="h-[250px] w-full">
@@ -320,9 +359,9 @@ export default function Environmental() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-850/60 bg-slate-900/10">
-                  {indicators.map((ind) => (
+                  {filtered.map((ind) => (
                     <tr key={ind.id} className="hover:bg-slate-900/40 text-slate-300">
-                      <td className="px-4 py-2.5 font-bold text-white">{getMonthLabel(ind.month)}</td>
+                      <td className="px-4 py-2.5 font-bold text-white">{formatDateFull(ind.month)}</td>
                       <td className="px-4 py-2.5 font-mono text-blue-400 font-semibold">{ind.water_consumption} m³</td>
                       <td className="px-4 py-2.5 font-mono text-amber-500 font-semibold">{ind.energy_consumption?.toLocaleString('es-CO')} kWh</td>
                       <td className="px-4 py-2.5 font-mono text-[#11c46e] font-semibold">{(ind.organic_waste || 0).toLocaleString('es-CO')} kg</td>
