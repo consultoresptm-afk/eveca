@@ -14,7 +14,8 @@ import {
   X,
   TrendingDown,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Edit3
 } from 'lucide-react';
 
 export default function Effluents() {
@@ -36,6 +37,7 @@ export default function Effluents() {
   const [attachedDocUrl, setAttachedDocUrl] = useState('');
   const [attachedDocName, setAttachedDocName] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
   // New POME & Biodigester fields
   const [pomeInput, setPomeInput] = useState('');
@@ -126,6 +128,50 @@ export default function Effluents() {
     reader.readAsDataURL(file);
   };
 
+  const resetForm = () => {
+    setDate(new Date().toISOString().substring(0, 10));
+    setTank('TK1');
+    setOilLevel('');
+    setRecoveredOil('');
+    setPH('');
+    setComments('');
+    setAttachedDocUrl('');
+    setAttachedDocName('');
+    setPomeInput('');
+    setSentToBiodigester(false);
+    setBiodigesterDestination('BD1');
+    setPomeToBiodigester('');
+    setTemperature('');
+    setVolumetry('');
+    setVolumetryUnit('L');
+    setEditingLogId(null);
+    setError('');
+  };
+
+  const handleEdit = (log: EffluentLog) => {
+    setEditingLogId(log.id || null);
+    setDate(new Date(log.date).toISOString().substring(0, 10));
+    setTank(log.tank);
+    setOilLevel(log.oil_level?.toString() || '');
+    setRecoveredOil(log.recovered_oil?.toString() || '');
+    setPH(log.ph?.toString() || '');
+    setComments(log.comments || '');
+    setAttachedDocUrl(log.attached_doc_url || '');
+    setAttachedDocName(log.attached_doc_name || '');
+    setPomeInput(log.pome_input?.toString() || '');
+    setSentToBiodigester(!!log.sent_to_biodigester);
+    setBiodigesterDestination(log.biodigester_destination || 'BD1');
+    setPomeToBiodigester(log.pome_to_biodigester?.toString() || '');
+    setTemperature(log.temperature?.toString() || '');
+    setVolumetry(log.volumetry?.toString() || '');
+    setVolumetryUnit(log.volumetry_unit || 'L');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    resetForm();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -171,33 +217,21 @@ export default function Effluents() {
         pome_to_biodigester: !isOilTank && sentToBiodigester && pomeToBiodigester ? Number(pomeToBiodigester) : undefined,
       };
 
-      const { error: insertError } = await supabase
-        .from('effluents_logs')
-        .insert([newLogObj])
-        .select();
+      const { error: dbError } = editingLogId
+        ? await supabase
+            .from('effluents_logs')
+            .update(newLogObj)
+            .eq('id', editingLogId)
+        : await supabase
+            .from('effluents_logs')
+            .insert([newLogObj]);
 
-      if (insertError) {
-        throw new Error(insertError.message);
+      if (dbError) {
+        throw new Error(dbError.message);
       }
 
-      setSuccess('¡Registro de efluentes ingresado con absoluto éxito!');
-      
-      // Clear Form state
-      setOilLevel('');
-      setRecoveredOil('');
-      setPH('');
-      setComments('');
-      setAttachedDocUrl('');
-      setAttachedDocName('');
-      setPomeInput('');
-      setSentToBiodigester(false);
-      setBiodigesterDestination('BD1');
-      setPomeToBiodigester('');
-      setTemperature('');
-      setVolumetry('');
-      setVolumetryUnit('L');
-
-      // Refresh list
+      setSuccess(editingLogId ? '¡Registro actualizado con éxito!' : '¡Registro de efluentes ingresado con absoluto éxito!');
+      resetForm();
       fetchLogs();
     } catch (err: any) {
       console.error(err);
@@ -247,7 +281,7 @@ export default function Effluents() {
         {/* Registration Form */}
         <div className="dash-card p-6 lg:col-span-1 self-start">
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <Plus className="w-5 h-5 text-[#00c5dc]" /> Registrar Nueva Lectura
+            <Plus className="w-5 h-5 text-[#00c5dc]" /> {editingLogId ? 'Editar Lectura Existente' : 'Registrar Nueva Lectura'}
           </h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -494,8 +528,18 @@ export default function Effluents() {
               disabled={uploading}
               className="w-full bg-[#00c5dc] hover:bg-[#00c5dc]/90 text-slate-950 font-bold py-2.5 rounded-lg text-xs tracking-wider transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40"
             >
-              {uploading ? 'Codificando adjunto...' : 'Guardar en Base de Datos'}
+              {uploading ? 'Codificando adjunto...' : editingLogId ? 'Actualizar Registro' : 'Guardar en Base de Datos'}
             </button>
+
+            {editingLogId && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="mt-2 w-full bg-slate-700 hover:bg-slate-600 text-slate-100 font-semibold py-2 rounded-lg text-xs tracking-wider transition-all hover:scale-[1.01] active:scale-95"
+              >
+                Cancelar edición
+              </button>
+            )}
           </form>
         </div>
 
@@ -640,12 +684,20 @@ export default function Effluents() {
                             ) : null}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <button
-                              onClick={() => log.id && handleDelete(log.id)}
-                              className="text-red-400 hover:text-white p-1 rounded hover:bg-red-500/15 transition-all active:scale-90"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="inline-flex items-center gap-1 justify-center">
+                              <button
+                                onClick={() => log.id && handleEdit(log)}
+                                className="text-slate-300 hover:text-[#00c5dc] p-1 rounded hover:bg-slate-700/30 transition-all active:scale-90"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => log.id && handleDelete(log.id)}
+                                className="text-red-400 hover:text-white p-1 rounded hover:bg-red-500/15 transition-all active:scale-90"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
