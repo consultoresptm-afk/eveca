@@ -5,8 +5,7 @@ import {
   Legend, PieChart, Pie, Cell 
 } from 'recharts';
 import { 
-  TrendingUp, Droplet, Flame, TreePine, FileText, CheckCircle2, ChevronRight, Recycle,
-  FileSpreadsheet, Camera, Loader2, Zap, Leaf
+  Droplet, Flame, FileSpreadsheet, Camera, Zap, Leaf, ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
@@ -387,427 +386,359 @@ export default function Dashboard() {
   };
 
   return (
-    <div id="dashboard-root" className="space-y-8 p-4 md:p-6 bg-slate-950/20 border border-transparent rounded-2xl">
-      {/* Cabecera Corporativa de Control de Gestión */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#0b0f19] to-slate-900 border border-slate-800 p-4 px-6 rounded-xl">
-        <div className="flex items-center gap-3">
-          <span className="flex h-3 w-3 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-          </span>
-          <div>
-            <span className="text-[10px] font-mono font-bold text-slate-400 tracking-widest block">SISTEMA INTEGRADO DE GESTIÓN</span>
-            <span className="text-sm font-bold text-white tracking-wide">EVECA S.A.S. • REPORTE GERENCIAL</span>
-          </div>
-        </div>
-        <div className="flex flex-col sm:items-end font-mono">
-          <span className="text-[10px] text-slate-500 font-bold">JEFATURA DE SOSTENIBILIDAD</span>
-          <span className="text-xs text-slate-300 font-semibold mt-0.5">
-            FECHA DE CORTE: <span className="text-[#00c5dc] font-bold">{currentTime}</span>
-          </span>
-        </div>
-      </div>
-
-      {/* Welcome Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-6 md:p-8 rounded-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[#00c5dc]/5 rounded-full blur-3xl -z-10"></div>
-        <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">EVECA S.A.S.</h1>
-          <p className="text-slate-400 mt-2 max-w-2xl text-sm">
-            Bienvenido, <span className="text-slate-100 font-semibold">{profile?.name || 'Operador de Planta'}</span>. Este es el centro integrado de la Jefatura de Sostenibilidad.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={handleCaptureDashboard}
-            disabled={isExportingImage}
-            className="px-4 py-2 bg-slate-850 hover:bg-slate-800 disabled:opacity-50 text-slate-300 border border-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            {isExportingImage ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-[#00c5dc]" />
-                Capturando...
-              </>
-            ) : (
-              <>
-                <Camera className="w-4 h-4 text-[#00c5dc]" />
-                Dashboard
-              </>
-            )}
-          </button>
-          <button
-            onClick={handleExportExcel}
-            disabled={isExportingExcel}
-            className="px-4 py-2 bg-[#11c46e]/10 hover:bg-[#11c46e]/20 disabled:opacity-50 text-[#11c46e] border border-[#11c46e]/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            {isExportingExcel ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Exportando...
-              </>
-            ) : (
-              <>
-                <FileSpreadsheet className="w-4 h-4" />
-                Exportar Excel
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Numerical Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-        <div className="dash-card p-6 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-slate-900 to-[#111827]">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-xl"></div>
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Efluentes</span>
-            <div className="p-2 bg-blue-500/10 text-blue-400 rounded-md">
-              <Droplet className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-3xl font-extrabold text-white">{stats.effluentsCount || 0}</h3>
-            <p className="text-xs text-slate-400 mt-1">Registros de Tanques</p>
-          </div>
-        </div>
-
-        <div className="dash-card p-6 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-slate-900 to-[#111827]">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-[#11c46e]/5 rounded-full blur-xl"></div>
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Aceite Recuperado</span>
-            <div className="p-2 bg-[#11c46e]/10 text-[#11c46e] rounded-md">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-3xl font-extrabold text-[#11c46e]">
-              {stats.totalOilRecovered ? stats.totalOilRecovered.toLocaleString('es-CO') : '0'} L
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">Total de efluente mitigado</p>
-          </div>
-        </div>
-
-        <div className="dash-card p-6 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-slate-900 to-[#111827]">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-[#00c5dc]/5 rounded-full blur-xl"></div>
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Compostaje</span>
-            <div className="p-2 bg-[#00c5dc]/10 text-[#00c5dc] rounded-md">
-              <Flame className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-3xl font-extrabold text-[#00c5dc]">{stats.compostCount || 0}</h3>
-            <p className="text-xs text-slate-400 mt-1">Ciclos de maduración</p>
-          </div>
-        </div>
-
-        <div className="dash-card p-6 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-slate-900 to-[#111827]">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/5 rounded-full blur-xl"></div>
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Residuos Aprovechados</span>
-            <div className="p-2 bg-purple-500/10 text-purple-400 rounded-md">
-              <Recycle className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-3xl font-extrabold text-purple-400">
-              {stats.totalWasteAprovechado ? stats.totalWasteAprovechado.toLocaleString('es-CO') : '0'} kg
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">Gestión Ambiental valorizada</p>
-          </div>
-        </div>
-
-        <div className="dash-card p-6 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-slate-900 to-[#111827]">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-[#f8c851]/5 rounded-full blur-xl"></div>
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Último pH</span>
-            <div className="p-2 bg-[#f8c851]/10 text-[#f8c851] rounded-md">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-3xl font-extrabold text-[#f8c851]">{stats.lastPH}</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              {stats.lastPH === '-' ? 'Sin registros' : 'Acidez del último tanque'}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Visual Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="dash-card p-6 lg:col-span-2">
-          <div className="flex justify-between items-center mb-6">
+    <div id="dashboard-root" className="space-y-6 p-6 bg-[#05070f] rounded-[36px] border border-slate-900/60 shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
+      <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
+        <div className="rounded-[32px] border border-slate-800 bg-slate-950/85 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.18)] overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <h3 className="text-lg font-bold text-white">Consolidado Histórico de Efluentes</h3>
-              <p className="text-slate-400 text-xs mt-0.5">Control de pH y volúmenes de aceites mitigados</p>
+              <p className="text-[10px] uppercase tracking-[0.4em] text-slate-500 font-semibold">Dashboard Gerencial</p>
+              <h1 className="text-3xl font-extrabold text-white mt-3">EVECA S.A.S.</h1>
+              <p className="text-slate-400 mt-3 max-w-2xl text-sm">Centro integrado de gestión de sostenibilidad para efluentes, compostaje, áreas verdes y consumo de recursos.</p>
             </div>
-            <span className="px-2.5 py-1 bg-slate-800 text-slate-400 rounded-full text-[10px] font-bold uppercase">
-              {hasEffluentData ? 'Tiempo Real / Histórico' : 'Sin Datos en la BD'}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 text-slate-300">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Usuario</p>
+                <p className="text-sm font-semibold text-white mt-1">{profile?.name || 'Operador de Planta'}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 text-slate-300">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Fecha de corte</p>
+                <p className="text-sm font-semibold text-white mt-1">{currentTime}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-1">
+          <div className="rounded-[32px] border border-slate-800 bg-slate-950/85 p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Exportar</p>
+                <p className="text-sm font-semibold text-white mt-1">Reporte gerencial</p>
+              </div>
+              <FileSpreadsheet className="w-5 h-5 text-[#11c46e]" />
+            </div>
+            <button
+              onClick={handleExportExcel}
+              disabled={isExportingExcel}
+              className="w-full rounded-2xl bg-[#11c46e]/10 border border-[#11c46e]/20 px-4 py-3 text-sm font-semibold text-[#11c46e] hover:bg-[#11c46e]/20 transition disabled:opacity-50"
+            >
+              {isExportingExcel ? 'Exportando...' : 'Exportar Excel'}
+            </button>
+          </div>
+
+          <div className="rounded-[32px] border border-slate-800 bg-slate-950/85 p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Captura</p>
+                <p className="text-sm font-semibold text-white mt-1">Imagen de dashboard</p>
+              </div>
+              <Camera className="w-5 h-5 text-[#00c5dc]" />
+            </div>
+            <button
+              onClick={handleCaptureDashboard}
+              disabled={isExportingImage}
+              className="w-full rounded-2xl bg-[#00c5dc]/10 border border-[#00c5dc]/20 px-4 py-3 text-sm font-semibold text-[#00c5dc] hover:bg-[#00c5dc]/20 transition disabled:opacity-50"
+            >
+              {isExportingImage ? 'Capturando...' : 'Descargar PNG'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6">
+        <div className="rounded-[32px] border border-slate-800 bg-slate-950/80 p-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-blue-500/10 blur-3xl"></div>
+          <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Efluentes</p>
+          <h2 className="text-4xl font-extrabold text-white mt-4">{stats.effluentsCount || 0}</h2>
+          <p className="text-slate-400 text-sm mt-3">Registros de tanques australianos.</p>
+        </div>
+        <div className="rounded-[32px] border border-slate-800 bg-slate-950/80 p-6 relative overflow-hidden">
+          <div className="absolute bottom-0 left-0 h-24 w-24 rounded-full bg-[#11c46e]/10 blur-3xl"></div>
+          <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Aceite recuperado</p>
+          <h2 className="text-4xl font-extrabold text-[#11c46e] mt-4">{stats.totalOilRecovered ? stats.totalOilRecovered.toLocaleString('es-CO') : '0'} L</h2>
+          <p className="text-slate-400 text-sm mt-3">Recuperado en planta.</p>
+        </div>
+        <div className="rounded-[32px] border border-slate-800 bg-slate-950/80 p-6 relative overflow-hidden">
+          <div className="absolute top-0 left-0 h-24 w-24 rounded-full bg-[#00c5dc]/10 blur-3xl"></div>
+          <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Compostaje</p>
+          <h2 className="text-4xl font-extrabold text-[#00c5dc] mt-4">{stats.compostCount || 0}</h2>
+          <p className="text-slate-400 text-sm mt-3">Ciclos de maduración.</p>
+        </div>
+        <div className="rounded-[32px] border border-slate-800 bg-slate-950/80 p-6 relative overflow-hidden">
+          <div className="absolute right-4 top-4 h-20 w-20 rounded-full bg-purple-500/10 blur-3xl"></div>
+          <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Residuos</p>
+          <h2 className="text-4xl font-extrabold text-purple-400 mt-4">{stats.totalWasteAprovechado ? stats.totalWasteAprovechado.toLocaleString('es-CO') : '0'} kg</h2>
+          <p className="text-slate-400 text-sm mt-3">Aprovechados en planta.</p>
+        </div>
+        <div className="rounded-[32px] border border-slate-800 bg-slate-950/80 p-6 relative overflow-hidden">
+          <div className="absolute top-4 left-4 h-14 w-14 rounded-full bg-[#f8c851]/10 blur-3xl"></div>
+          <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Último pH</p>
+          <h2 className="text-4xl font-extrabold text-[#f8c851] mt-4">{stats.lastPH}</h2>
+          <p className="text-slate-400 text-sm mt-3">{stats.lastPH === '-' ? 'Sin registros' : 'Acidez del último tanque'}.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6">
+        <div className="rounded-[40px] border border-slate-800 bg-slate-950/85 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.24)]">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Flujo de efluentes</p>
+              <h2 className="text-2xl font-extrabold text-white">Tendencia y recuperación</h2>
+            </div>
+            <span className="rounded-full border border-slate-800 bg-slate-900/80 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-300">
+              {hasEffluentData ? 'Activo' : 'Sin datos'}
             </span>
           </div>
-
-          {!hasEffluentData ? (
-            <div className="h-[300px] w-full flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-950/20 p-6 text-center">
-              <div className="p-3 bg-blue-500/10 text-blue-400 rounded-full mb-3">
-                <Droplet className="w-8 h-8 animate-pulse" />
-              </div>
-              <h4 className="text-white font-bold text-sm">Histórico de Efluentes Vacío</h4>
-              <p className="text-slate-400 text-xs max-w-sm mt-1">
-                No se han registrado operaciones de tanques australianos todavía. Agregue su primer reporte técnico en el módulo de efluentes para activar este gráfico.
-              </p>
-              <Link to="/efluentes" className="mt-4 px-4 py-2 bg-[#00c5dc] hover:bg-[#00a9bd] text-slate-950 rounded-lg text-xs font-bold font-sans transition-all">
-                Registrar Primer Efluente
-              </Link>
-            </div>
-          ) : (
-            <div className="h-[300px] w-full">
+          <div className="h-[440px] w-full rounded-[30px] bg-slate-900/70 p-4">
+            {hasEffluentData ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={effluentChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <AreaChart data={effluentChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorPH" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#00c5dc" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#00c5dc" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#00c5dc" stopOpacity={0.28} />
+                      <stop offset="95%" stopColor="#00c5dc" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorRec" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#11c46e" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#11c46e" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#11c46e" stopOpacity={0.28} />
+                      <stop offset="95%" stopColor="#11c46e" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                  <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
-                  <YAxis stroke="#6b7280" fontSize={11} />
-                  <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }} formatter={(value, name) => {
+                  <CartesianGrid strokeDasharray="3 3" stroke="#111827" />
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={11} tick={{ fill: '#94a3b8' }} />
+                  <YAxis stroke="#64748b" fontSize={11} tick={{ fill: '#94a3b8' }} />
+                  <Tooltip contentStyle={{ backgroundColor: '#020617', borderColor: '#334155' }} formatter={(value, name) => {
                     if (name === 'POME Ingresado') return [`${Number(value).toLocaleString('es-CO')} m³`, name];
                     if (name === 'Aceite Recuperado (L)') return [`${Number(value).toLocaleString('es-CO')} L`, name];
                     if (name === 'Promedio pH') return [value, name];
                     return [value, name];
                   }} />
-                  <Legend iconType="circle" />
-                  <Area type="monotone" name="Promedio pH" dataKey="ph" stroke="#00c5dc" strokeWidth={2} fillOpacity={1} fill="url(#colorPH)" />
-                  <Area type="monotone" name="Aceite Recuperado (L)" dataKey="recovered" stroke="#11c46e" strokeWidth={2} fillOpacity={1} fill="url(#colorRec)" />
-                  <Area type="monotone" name="POME Ingresado" dataKey="pome" stroke="#f59e0b" strokeWidth={2} fillOpacity={0.15} fill="#f59e0b" />
+                  <Legend iconType="circle" wrapperStyle={{ color: '#94a3b8', fontSize: 12 }} />
+                  <Area type="monotone" name="Promedio pH" dataKey="ph" stroke="#00c5dc" strokeWidth={2} fill="url(#colorPH)" />
+                  <Area type="monotone" name="Aceite Recuperado (L)" dataKey="recovered" stroke="#11c46e" strokeWidth={2} fill="url(#colorRec)" />
+                  <Area type="monotone" name="POME Ingresado" dataKey="pome" stroke="#f59e0b" strokeWidth={2} fillOpacity={0.14} fill="#f59e0b" />
                 </AreaChart>
               </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-
-        <div className="dash-card p-6 flex flex-col justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-white mb-1">Materia Compost</h3>
-            <p className="text-slate-400 text-xs mb-6">Distribución actual de masa y sustratos (kg)</p>
-            
-            {!hasCompostData ? (
-              <div className="h-[200px] w-full flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-950/20 p-4 text-center">
-                <div className="p-2.5 bg-[#11c46e]/10 text-[#11c46e] rounded-full mb-2">
-                  <Flame className="w-6 h-6 animate-pulse" />
-                </div>
-                <h4 className="text-white font-bold text-xs">Sin Registros de Compost</h4>
-                <p className="text-slate-400 text-[11px] max-w-xs mt-1">
-                  Una vez registre cargas de materia prima o controles de compostaje, verá la distribución térmica y de biomasa aquí.
-                </p>
-                <Link to="/compostaje" className="mt-3 px-3 py-1.5 bg-[#11c46e]/20 hover:bg-[#11c46e]/30 text-[#11c46e] rounded-lg text-[10px] font-bold font-sans transition-all">
-                  Registrar Compostaje
-                </Link>
-              </div>
             ) : (
-              <div className="h-[200px] w-full flex justify-center items-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={compostChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {compostChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value} kg`} contentStyle={{ backgroundColor: '#111827', borderColor: '#374151' }} />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="h-full w-full rounded-[24px] border border-dashed border-slate-800 bg-slate-900/70 flex flex-col items-center justify-center text-center px-6 py-8">
+                <Droplet className="w-10 h-10 text-[#00c5dc] mb-4" />
+                <p className="text-white text-lg font-bold">Sin datos de efluentes</p>
+                <p className="text-slate-400 text-sm mt-2">Registra tus operaciones en el módulo de Efluentes para activar este gráfico.</p>
+                <Link to="/efluentes" className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#00c5dc]/10 px-4 py-2 text-[#00c5dc] text-xs font-semibold hover:bg-[#00c5dc]/20 transition-all">Ir a Efluentes</Link>
               </div>
             )}
           </div>
+        </div>
 
+        <div className="space-y-6">
+          <div className="rounded-[32px] border border-slate-800 bg-slate-950/85 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500 font-semibold">Indicadores</p>
+                <h3 className="text-xl font-extrabold text-white mt-2">KPIs Rápidos</h3>
+              </div>
+              <span className="rounded-full bg-slate-900/75 px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-slate-300">Actualizado</span>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-4">
+                <div className="flex justify-between text-xs uppercase tracking-[0.25em] text-slate-400 mb-3">
+                  <span>Último pH</span>
+                  <span>{stats.lastPH}</span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div className="h-full bg-[#00c5dc]" style={{ width: `${Math.min(Number(stats.lastPH) * 7, 100)}%` }}></div>
+                </div>
+              </div>
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-4">
+                <div className="flex justify-between text-xs uppercase tracking-[0.25em] text-slate-400 mb-3">
+                  <span>Aceite Recuperado</span>
+                  <span>{stats.totalOilRecovered ? stats.totalOilRecovered.toLocaleString('es-CO') : '0'} L</span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div className="h-full bg-[#11c46e]" style={{ width: `${Math.min(stats.totalOilRecovered / 20, 100)}%` }}></div>
+                </div>
+              </div>
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-4">
+                <div className="flex justify-between text-xs uppercase tracking-[0.25em] text-slate-400 mb-3">
+                  <span>Residuos aprovechados</span>
+                  <span>{stats.totalWasteAprovechado ? stats.totalWasteAprovechado.toLocaleString('es-CO') : '0'} kg</span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div className="h-full bg-purple-400" style={{ width: `${Math.min(stats.totalWasteAprovechado / 40, 100)}%` }}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[32px] border border-slate-800 bg-slate-950/85 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500 font-semibold">Accesos rápidos</p>
+                <h3 className="text-xl font-extrabold text-white mt-2">Módulos</h3>
+              </div>
+              <Zap className="w-6 h-6 text-amber-400" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Link to="/efluentes" className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 hover:border-[#00c5dc]/50 transition-all">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 mb-3">Tanques</p>
+                <p className="text-sm text-white font-semibold">Efluentes</p>
+              </Link>
+              <Link to="/compostaje" className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 hover:border-[#11c46e]/50 transition-all">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 mb-3">Biomasa</p>
+                <p className="text-sm text-white font-semibold">Compostaje</p>
+              </Link>
+              <Link to="/areas-verdes" className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 hover:border-[#f8c851]/50 transition-all">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 mb-3">Verde</p>
+                <p className="text-sm text-white font-semibold">Áreas</p>
+              </Link>
+              <Link to="/gestion-ambiental" className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 hover:border-purple-400/50 transition-all">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 mb-3">Indicadores</p>
+                <p className="text-sm text-white font-semibold">Gestión</p>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="rounded-[32px] border border-slate-800 bg-slate-950/85 p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500 font-semibold">Compostaje</p>
+              <h3 className="text-xl font-extrabold text-white mt-2">Distribución de Materia</h3>
+            </div>
+            <Flame className="w-6 h-6 text-[#00c5dc]" />
+          </div>
+          {hasCompostData ? (
+            <div className="h-[260px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={compostChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={58}
+                    outerRadius={82}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {compostChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => `${value} kg`} contentStyle={{ backgroundColor: '#111827', borderColor: '#374151' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-[260px] flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/70 text-center px-4">
+              <Flame className="w-10 h-10 text-[#00c5dc] mb-4" />
+              <p className="text-slate-400 text-sm">Registre composteras para ver la distribución de fases y sustratos.</p>
+            </div>
+          )}
           {hasCompostData && (
-            <div className="space-y-2 mt-4">
+            <div className="mt-4 space-y-3">
               {compostChartData.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center text-xs">
+                <div key={idx} className="flex items-center justify-between text-xs text-slate-300">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span className="text-slate-400 font-medium">{item.name}</span>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }}></span>
+                    <span>{item.name}</span>
                   </div>
-                  <span className="text-white font-bold">{(item.value || 0).toLocaleString('es-CO')} kg</span>
+                  <span className="font-semibold text-white">{(item.value || 0).toLocaleString('es-CO')} kg</span>
                 </div>
               ))}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Consumo de Recursos (Agua y Energía) */}
-      <div className="grid grid-cols-1 gap-6">
-        <div className="dash-card p-6">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+        <div className="rounded-[32px] border border-slate-800 bg-slate-950/85 p-6 xl:col-span-2">
+          <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Leaf className="w-5 h-5 text-emerald-400" />
-                Histórico de Consumo de Recursos (Agua y Energía)
-              </h3>
-              <p className="text-slate-400 text-xs mt-0.5">Evolución mensual combinada del consumo de electricidad (kW) y agua potable (m³)</p>
+              <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500 font-semibold">Consumo</p>
+              <h3 className="text-xl font-extrabold text-white mt-2">Agua y Energía</h3>
             </div>
-            <span className="px-2.5 py-1 bg-slate-800 text-slate-400 rounded-full text-[10px] font-bold uppercase w-fit">
-              {hasResourceData ? 'Datos de Planta Consolidados' : 'Sin Datos en la BD'}
-            </span>
+            <Leaf className="w-6 h-6 text-[#11c46e]" />
           </div>
-
-          {!hasResourceData ? (
-            <div className="h-[280px] w-full flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-950/20 p-6 text-center">
-              <div className="flex gap-3 mb-3 text-slate-500">
-                <div className="p-3 bg-blue-500/10 text-blue-400 rounded-full">
-                  <Droplet className="w-6 h-6" />
-                </div>
-                <div className="p-3 bg-amber-500/10 text-amber-500 rounded-full">
-                  <Zap className="w-6 h-6 animate-pulse" />
-                </div>
-              </div>
-              <h4 className="text-white font-bold text-sm">Historial de Consumo Vacío</h4>
-              <p className="text-slate-400 text-xs max-w-md mt-1">
-                No se han registrado consumos en los indicadores de sostenibilidad mensual todavía. Ingrese datos bajo el módulo de Gestión Ambiental para visualizar e interactuar con esta gráfica.
-              </p>
-              <Link to="/gestion-ambiental" className="mt-4 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 rounded-lg text-xs font-bold font-sans transition-all">
-                Registrar Consumos Mensuales
-              </Link>
-            </div>
-          ) : (
-            <div className="h-[320px] w-full">
+          {hasResourceData ? (
+            <div className="h-[260px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={resourceChartData} margin={{ top: 15, right: 15, left: 5, bottom: 5 }}>
+                <AreaChart data={resourceChartData} margin={{ top: 8, right: 8, left: -10, bottom: 8 }}>
                   <defs>
                     <linearGradient id="colorWater" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorEnergy" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#eab308" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#eab308" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#eab308" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                  <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
-                  <YAxis yAxisId="left" stroke="#3b82f6" fontSize={11} tickFormatter={(v) => `${v} m³`} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#eab308" fontSize={11} tickFormatter={(v) => `${v} kW`} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }}
-                    formatter={(value, name) => {
-                      if (name === "Consumo de Agua") return [`${Number(value).toLocaleString('es-CO')} m³`, name];
-                      if (name === "Consumo de Energía") return [`${Number(value).toLocaleString('es-CO')} kW`, name];
-                      return [value, name];
-                    }}
-                  />
-                  <Legend iconType="circle" />
-                  <Area yAxisId="left" type="monotone" name="Consumo de Agua" dataKey="water" stroke="#3b82f6" strokeWidth={2.5} fillOpacity={1} fill="url(#colorWater)" />
-                  <Area yAxisId="right" type="monotone" name="Consumo de Energía" dataKey="energy" stroke="#eab308" strokeWidth={2.5} fillOpacity={1} fill="url(#colorEnergy)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#111827" />
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={11} tick={{ fill: '#94a3b8' }} />
+                  <YAxis yAxisId="left" stroke="#3b82f6" fontSize={11} tick={{ fill: '#94a3b8' }} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#eab308" fontSize={11} tick={{ fill: '#94a3b8' }} />
+                  <Tooltip contentStyle={{ backgroundColor: '#020617', borderColor: '#334155' }} formatter={(value, name) => {
+                    if (name === 'Consumo de Agua') return [`${Number(value).toLocaleString('es-CO')} m³`, name];
+                    if (name === 'Consumo de Energía') return [`${Number(value).toLocaleString('es-CO')} kW`, name];
+                    return [value, name];
+                  }} />
+                  <Legend iconType="circle" wrapperStyle={{ color: '#94a3b8', fontSize: 12 }} />
+                  <Area yAxisId="left" type="monotone" name="Consumo de Agua" dataKey="water" stroke="#3b82f6" strokeWidth={2} fill="url(#colorWater)" />
+                  <Area yAxisId="right" type="monotone" name="Consumo de Energía" dataKey="energy" stroke="#eab308" strokeWidth={2} fill="url(#colorEnergy)" />
                 </AreaChart>
               </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-[260px] flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/70 text-center px-4">
+              <Zap className="w-10 h-10 text-amber-400 mb-4" />
+              <p className="text-slate-400 text-sm">Registre consumos de agua y electricidad en Gestión Ambiental para generar este análisis.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Row: Actions list & Recent operations */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="dash-card p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold text-white">Actividades y Accesos rápidos</h3>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Módulos</span>
+      <div className="rounded-[32px] border border-slate-800 bg-slate-950/85 p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-xl font-extrabold text-white">Actividad reciente</h3>
+            <p className="text-slate-400 text-sm mt-1">Últimos registros de planta en los diferentes módulos.</p>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Link to="/efluentes" className="p-4 bg-slate-900 border border-slate-800 hover:border-[#00c5dc]/30 hover:bg-slate-850 rounded-lg group transition-all text-left">
-              <div className="p-2 bg-blue-500/10 text-blue-400 rounded-md w-fit mb-3 group-hover:scale-110 transition-transform">
-                <Droplet className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-white text-sm">Efluentes</h4>
-              <p className="text-slate-500 text-[11px] mt-1">Registrar tanques australianos</p>
-            </Link>
-
-            <Link to="/compostaje" className="p-4 bg-slate-900 border border-slate-800 hover:border-[#11c46e]/30 hover:bg-slate-850 rounded-lg group transition-all text-left">
-              <div className="p-2 bg-[#11c46e]/10 text-[#11c46e] rounded-md w-fit mb-3 group-hover:scale-110 transition-transform">
-                <Flame className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-white text-sm">Compostaje</h4>
-              <p className="text-slate-500 text-[11px] mt-1">Temperaturas y humedad</p>
-            </Link>
-
-            <Link to="/areas-verdes" className="p-4 bg-slate-900 border border-slate-800 hover:border-[#f8c851]/30 hover:bg-slate-850 rounded-lg group transition-all text-left">
-              <div className="p-2 bg-[#f8c851]/10 text-[#f8c851] rounded-md w-fit mb-3 group-hover:scale-110 transition-transform">
-                <TreePine className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-white text-sm">Áreas Verdes</h4>
-              <p className="text-slate-500 text-[11px] mt-1">Mantenimientos y podas</p>
-            </Link>
-
-            <Link to="/gestion-ambiental" className="p-4 bg-slate-900 border border-slate-800 hover:border-slate-650 hover:bg-slate-850 rounded-lg group transition-all text-left">
-              <div className="p-2 bg-purple-500/10 text-purple-400 rounded-md w-fit mb-3 group-hover:scale-110 transition-transform">
-                <FileText className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-white text-sm">Indicadores</h4>
-              <p className="text-slate-500 text-[11px] mt-1">Metas de sostenibilidad</p>
-            </Link>
-          </div>
+          <span className="rounded-full bg-slate-900/75 px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-slate-300">{recentLogs.length} entradas</span>
         </div>
 
-        <div className="dash-card p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-white">Logs Recientes en Planta</h3>
-              <p className="text-[10px] text-[#00c5dc] bg-[#00c5dc]/10 px-2.5 py-0.5 rounded font-semibold uppercase tracking-widest">Base de Datos</p>
+        <div className="space-y-4">
+          {recentLogs.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-800 bg-slate-900/70 p-6 text-center text-slate-500">
+              No hay registros recientes. Agrega datos en los módulos para poblar esta vista.
             </div>
-
-            <div className="space-y-4">
-              {recentLogs.length === 0 ? (
-                <div className="text-slate-500 text-xs italic py-6 text-center">
-                  No se han registrado operaciones en el sistema todavía. Use los módulos laterales para ingresar su primer registro.
-                </div>
-              ) : (
-                recentLogs.map((log, idx) => (
-                  <div key={idx} className="flex gap-3 justify-between items-start bg-slate-950/40 p-3 rounded-lg border border-slate-850">
-                    <div>
-                      <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded leading-none ${
-                        log.type === 'Efluentes' ? 'bg-blue-500/10 text-blue-400' : 'bg-[#11c46e]/10 text-[#11c46e]'
-                      }`}>
-                        {log.type}
-                      </span>
-                      <h5 className="font-semibold text-white text-sm mt-1.5">{log.title}</h5>
-                      <p className="text-slate-400 text-xs mt-0.5 max-w-[280px] truncate">{log.comments || 'Sin comentarios adicionales.'}</p>
-                    </div>
-                    <span className="text-slate-500 text-[10px] whitespace-nowrap mt-1">{new Date(log.date).toLocaleDateString()}</span>
+          ) : (
+            recentLogs.map((log, idx) => (
+              <div key={idx} className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`text-[10px] font-bold uppercase tracking-[0.35em] px-2 py-1 rounded-full ${
+                      log.type === 'Efluentes' ? 'bg-blue-500/10 text-blue-400' : 'bg-[#11c46e]/10 text-[#11c46e]'
+                    }`}>{log.type}</span>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
+                  <h5 className="text-white font-semibold">{log.title}</h5>
+                  <p className="text-slate-400 text-xs mt-2 line-clamp-2">{log.comments || 'Sin comentarios adicionales.'}</p>
+                </div>
+                <span className="text-[10px] text-slate-500 whitespace-nowrap self-start">{new Date(log.date).toLocaleDateString()}</span>
+              </div>
+            ))
+          )}
+        </div>
 
-          <div className="mt-4 pt-4 border-t border-slate-800 text-xs text-slate-400 flex justify-between items-center">
-            <span>¿Tiene anomalías en base de datos?</span>
-            <Link to="/setup" className="text-[#00c5dc] hover:underline font-bold flex items-center gap-1">
-              Ejecutar Test de Tablas <ChevronRight className="w-3" />
-            </Link>
-          </div>
+        <div className="mt-6 pt-5 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-400">
+          <span>¿Tiene anomalías en base de datos?</span>
+          <Link to="/setup" className="text-[#00c5dc] hover:underline font-bold flex items-center gap-1">
+            Ejecutar Test de Tablas <ChevronRight className="w-3" />
+          </Link>
         </div>
       </div>
 
-      {/* Footer Gerencial de Exportación */}
-      <div className="pt-6 border-t border-slate-900/60 flex flex-col sm:flex-row justify-between items-center gap-2 text-[10px] font-mono text-slate-500">
-        <span>© {new Date().getFullYear()} EVECA S.A.S. - Centro Integrado de Planta.</span>
-        <span className="text-slate-600">REPORTE DE SOSTENIBILIDAD CONTROLADO • CONFIDENCIALIDAD NIVEL GERENCIAL</span>
+      <div className="pt-6 border-t border-slate-900/60 flex flex-col sm:flex-row justify-between gap-2 text-[10px] font-mono text-slate-500">
+        <span>© {new Date().getFullYear()} EVECA S.A.S. - Centro Integrado de Planta</span>
+        <span>REPORTE DE SOSTENIBILIDAD CONTROLADO • CONFIDENCIALIDAD GERENCIAL</span>
       </div>
     </div>
   );

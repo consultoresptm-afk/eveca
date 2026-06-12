@@ -7,7 +7,8 @@ import {
   AlertCircle, 
   Trash2, 
   BarChart2, 
-  CheckCircle2 
+  CheckCircle2,
+  Edit3
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
@@ -18,6 +19,7 @@ export default function Environmental() {
   const [indicators, setIndicators] = useState<SustainabilityIndicator[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [editingIndicatorId, setEditingIndicatorId] = useState<string | null>(null);
 
   // Form State (day granularity)
   const [month, setMonth] = useState(new Date().toISOString().substring(0, 10)); // 'YYYY-MM-DD'
@@ -52,6 +54,28 @@ export default function Environmental() {
     }
   };
 
+  const resetForm = () => {
+    setMonth(new Date().toISOString().substring(0, 10));
+    setWaterConsumption('');
+    setEnergyConsumption('');
+    setOrganicWaste('');
+    setHazardousWaste('');
+    setRecyclableWaste('');
+    setEditingIndicatorId(null);
+    setError('');
+  };
+
+  const handleEdit = (indicator: SustainabilityIndicator) => {
+    setEditingIndicatorId(indicator.id || null);
+    setMonth(indicator.month);
+    setWaterConsumption(indicator.water_consumption?.toString() || '');
+    setEnergyConsumption(indicator.energy_consumption?.toString() || '');
+    setOrganicWaste(indicator.organic_waste?.toString() || '');
+    setHazardousWaste(indicator.hazardous_waste?.toString() || '');
+    setRecyclableWaste(indicator.recyclable_waste?.toString() || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -80,7 +104,16 @@ export default function Environmental() {
         .eq('month', month)
         .maybeSingle();
 
-      if (existing) {
+      if (editingIndicatorId) {
+        const { error: updateError } = await supabase
+          .from('sustainability_indicators')
+          .update(newIndicator)
+          .eq('id', editingIndicatorId);
+
+        if (updateError) {
+          throw new Error(updateError.message);
+        }
+      } else if (existing) {
         if (!window.confirm(`Ya existe un registro para el día ${formatDateFull(month)}. ¿Desea actualizar solo los campos ingresados?`)) {
           return;
         }
@@ -106,12 +139,7 @@ export default function Environmental() {
       setSuccess('¡Indicadores de gestión ambiental actualizados con éxito!');
       
       // Clear inputs
-      setWaterConsumption('');
-      setEnergyConsumption('');
-      setOrganicWaste('');
-      setHazardousWaste('');
-      setRecyclableWaste('');
-
+      resetForm();
       fetchIndicators();
     } catch (err: any) {
       console.error(err);
@@ -197,7 +225,7 @@ export default function Environmental() {
         {/* Registration Form */}
         <div className="dash-card p-6 lg:col-span-1 self-start">
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <Plus className="w-5 h-5 text-purple-400" /> Ingresar Registro Diario
+            <Plus className="w-5 h-5 text-purple-400" /> {editingIndicatorId ? 'Editar Registro Diario' : 'Ingresar Registro Diario'}
           </h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -294,8 +322,18 @@ export default function Environmental() {
               type="submit"
               className="w-full bg-[#00c5dc] hover:bg-[#00c5dc]/90 text-slate-950 font-bold py-2.5 rounded-lg text-xs tracking-wider transition-all hover:scale-[1.02] active:scale-95"
             >
-              Guardar Registro del Día
+              {editingIndicatorId ? 'Actualizar Registro' : 'Guardar Registro del Día'}
             </button>
+
+            {editingIndicatorId && (
+              <button
+                type="button"
+                onClick={() => resetForm()}
+                className="mt-2 w-full bg-slate-700 hover:bg-slate-600 text-slate-100 font-semibold py-2 rounded-lg text-xs tracking-wider transition-all hover:scale-[1.01] active:scale-95"
+              >
+                Cancelar edición
+              </button>
+            )}
           </form>
         </div>
         {/* List & Visualization Charts */}
@@ -370,12 +408,22 @@ export default function Environmental() {
                       <td className="px-4 py-2.5 font-mono text-red-400 font-semibold">{ind.hazardous_waste != null ? `${ind.hazardous_waste.toLocaleString('es-CO')} kg` : '-'}</td>
                       <td className="px-4 py-2.5 font-mono text-purple-400 font-semibold">{ind.recyclable_waste != null ? `${ind.recyclable_waste.toLocaleString('es-CO')} kg` : '-'}</td>
                       <td className="px-4 py-2.5 text-center">
-                        <button
-                          onClick={() => ind.id && handleDelete(ind.id)}
-                          className="text-red-400 hover:text-white p-1 rounded hover:bg-red-500/15"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="inline-flex items-center gap-1 justify-center">
+                          <button
+                            type="button"
+                            onClick={() => ind.id && handleEdit(ind)}
+                            className="text-slate-300 hover:text-[#00c5dc] p-1 rounded hover:bg-slate-700/30 transition-all active:scale-90"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => ind.id && handleDelete(ind.id)}
+                            className="text-red-400 hover:text-white p-1 rounded hover:bg-red-500/15"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

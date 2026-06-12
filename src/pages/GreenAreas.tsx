@@ -15,7 +15,8 @@ import {
   User,
   Heart,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Edit3
 } from 'lucide-react';
 
 export default function GreenAreas() {
@@ -35,6 +36,7 @@ export default function GreenAreas() {
   const [attachedDocUrl, setAttachedDocUrl] = useState('');
   const [attachedDocName, setAttachedDocName] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLogs();
@@ -83,6 +85,35 @@ export default function GreenAreas() {
     reader.readAsDataURL(file);
   };
 
+  const resetForm = () => {
+    setDate(new Date().toISOString().substring(0, 10));
+    setAreaName('Jardín de Entrada');
+    setMaintenanceType('Poda');
+    setGardenerCompany('');
+    setObservations('');
+    setAttachedDocUrl('');
+    setAttachedDocName('');
+    setUploading(false);
+    setEditingLogId(null);
+    setError('');
+  };
+
+  const handleEdit = (log: GreenAreaLog) => {
+    setEditingLogId(log.id || null);
+    setDate(new Date(log.date).toISOString().substring(0, 10));
+    setAreaName(log.area_name);
+    setMaintenanceType(log.maintenance_type);
+    setGardenerCompany(log.gardener_company || '');
+    setObservations(log.observations || '');
+    setAttachedDocUrl(log.attached_doc_url || '');
+    setAttachedDocName(log.attached_doc_name || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    resetForm();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -105,22 +136,21 @@ export default function GreenAreas() {
         created_by: user?.id,
       };
 
-      const { error: insertError } = await supabase
-        .from('green_areas_logs')
-        .insert([newLogObj]);
+      const { error: dbError } = editingLogId
+        ? await supabase
+            .from('green_areas_logs')
+            .update(newLogObj)
+            .eq('id', editingLogId)
+        : await supabase
+            .from('green_areas_logs')
+            .insert([newLogObj]);
 
-      if (insertError) {
-        throw new Error(insertError.message);
+      if (dbError) {
+        throw new Error(dbError.message);
       }
 
-      setSuccess('¡Mantenimiento de área verde registrado con éxito en base de datos!');
-
-      // Reset Form State
-      setGardenerCompany('');
-      setObservations('');
-      setAttachedDocUrl('');
-      setAttachedDocName('');
-
+      setSuccess(editingLogId ? '¡Mantenimiento de área verde actualizado con éxito!' : '¡Mantenimiento de área verde registrado con éxito en base de datos!');
+      resetForm();
       fetchLogs();
     } catch (err: any) {
       console.error(err);
@@ -167,7 +197,7 @@ export default function GreenAreas() {
         {/* Registration Form */}
         <div className="dash-card p-6 lg:col-span-1 self-start">
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <Plus className="w-5 h-5 text-[#f8c851]" /> Registrar Mantenimiento
+            <Plus className="w-5 h-5 text-[#f8c851]" /> {editingLogId ? 'Editar Mantenimiento' : 'Registrar Mantenimiento'}
           </h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -294,8 +324,18 @@ export default function GreenAreas() {
               disabled={uploading}
               className="w-full bg-[#f8c851] hover:bg-[#f8c851]/95 text-slate-950 font-bold py-2.5 rounded-lg text-xs tracking-wider transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40"
             >
-              {uploading ? 'Procesando adjunto...' : 'Guardar en Base de Datos'}
+              {uploading ? 'Procesando adjunto...' : editingLogId ? 'Actualizar Registro' : 'Guardar en Base de Datos'}
             </button>
+
+            {editingLogId && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="mt-2 w-full bg-slate-700 hover:bg-slate-600 text-slate-100 font-semibold py-2 rounded-lg text-xs tracking-wider transition-all hover:scale-[1.01] active:scale-95"
+              >
+                Cancelar edición
+              </button>
+            )}
           </form>
         </div>
 
@@ -373,12 +413,22 @@ export default function GreenAreas() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => log.id && handleDelete(log.id)}
-                            className="text-red-400 hover:text-white p-1 rounded hover:bg-red-500/15 transition-all active:scale-95"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="inline-flex items-center gap-1 justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(log)}
+                              className="text-slate-300 hover:text-[#00c5dc] p-1 rounded hover:bg-slate-700/30 transition-all active:scale-90"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => log.id && handleDelete(log.id)}
+                              className="text-red-400 hover:text-white p-1 rounded hover:bg-red-500/15 transition-all active:scale-95"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
