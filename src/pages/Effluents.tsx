@@ -686,12 +686,14 @@ export default function Effluents() {
                           <td className="px-4 py-3 text-center">
                             <div className="inline-flex items-center gap-1 justify-center">
                               <button
-                                onClick={() => log.id && handleEdit(log)}
+                                type="button"
+                                onClick={() => handleEdit(log)}
                                 className="text-slate-300 hover:text-[#00c5dc] p-1 rounded hover:bg-slate-700/30 transition-all active:scale-90"
                               >
                                 <Edit3 className="w-4 h-4" />
                               </button>
                               <button
+                                type="button"
                                 onClick={() => log.id && handleDelete(log.id)}
                                 className="text-red-400 hover:text-white p-1 rounded hover:bg-red-500/15 transition-all active:scale-90"
                               >
