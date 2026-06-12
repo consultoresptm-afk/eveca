@@ -78,9 +78,15 @@ app.post('/api/request-access', async (req, res) => {
   }
 });
 
-// Serve frontend assets
+// Serve frontend assets with cache control for SPA HTML
 const distPath = path.join(__dirname, 'dist');
-app.use(express.static(distPath));
+app.use(express.static(distPath, {
+  setHeaders: (res, path) => {
+    if (path.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    }
+  }
+}));
 
 // For SPA routing
 app.get('*', (req, res, next) => {
@@ -88,6 +94,7 @@ app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) {
     return next();
   }
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
