@@ -422,6 +422,3 @@ export default function Compost() {
     </div>
   );
 }
-    </div>
-  );
-}
