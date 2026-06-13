@@ -18,9 +18,6 @@ export interface EffluentLog {
   oil_level?: number;
   recovered_oil?: number;
   ph?: number;
-  temperature?: number;
-  volumetry?: number;
-  volumetry_unit?: string;
   comments?: string;
   attached_doc_url?: string;
   attached_doc_name?: string;
@@ -67,6 +64,7 @@ export interface SustainabilityIndicator {
   organic_waste?: number;
   hazardous_waste?: number;
   recyclable_waste?: number;
+  ordinary_waste?: number;
   created_by?: string;
   created_at?: string;
 }
