@@ -14,8 +14,7 @@ import {
   X,
   TrendingDown,
   CheckCircle2,
-  ExternalLink,
-  Edit3
+  ExternalLink
 } from 'lucide-react';
 
 export default function Effluents() {
@@ -37,18 +36,12 @@ export default function Effluents() {
   const [attachedDocUrl, setAttachedDocUrl] = useState('');
   const [attachedDocName, setAttachedDocName] = useState('');
   const [uploading, setUploading] = useState(false);
-  const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
   // New POME & Biodigester fields
   const [pomeInput, setPomeInput] = useState('');
   const [sentToBiodigester, setSentToBiodigester] = useState(false);
   const [biodigesterDestination, setBiodigesterDestination] = useState('BD1');
   const [pomeToBiodigester, setPomeToBiodigester] = useState('');
-
-  // Temperature and Volumetry fields
-  const [temperature, setTemperature] = useState('');
-  const [volumetry, setVolumetry] = useState('');
-  const [volumetryUnit, setVolumetryUnit] = useState('L');
 
   useEffect(() => {
     fetchLogs();
@@ -128,54 +121,15 @@ export default function Effluents() {
     reader.readAsDataURL(file);
   };
 
-  const resetForm = () => {
-    setDate(new Date().toISOString().substring(0, 10));
-    setTank('TK1');
-    setOilLevel('');
-    setRecoveredOil('');
-    setPH('');
-    setComments('');
-    setAttachedDocUrl('');
-    setAttachedDocName('');
-    setPomeInput('');
-    setSentToBiodigester(false);
-    setBiodigesterDestination('BD1');
-    setPomeToBiodigester('');
-    setTemperature('');
-    setVolumetry('');
-    setVolumetryUnit('L');
-    setEditingLogId(null);
-    setError('');
-  };
-
-  const handleEdit = (log: EffluentLog) => {
-    setEditingLogId(log.id || null);
-    setDate(new Date(log.date).toISOString().substring(0, 10));
-    setTank(log.tank);
-    setOilLevel(log.oil_level?.toString() || '');
-    setRecoveredOil(log.recovered_oil?.toString() || '');
-    setPH(log.ph?.toString() || '');
-    setComments(log.comments || '');
-    setAttachedDocUrl(log.attached_doc_url || '');
-    setAttachedDocName(log.attached_doc_name || '');
-    setPomeInput(log.pome_input?.toString() || '');
-    setSentToBiodigester(!!log.sent_to_biodigester);
-    setBiodigesterDestination(log.biodigester_destination || 'BD1');
-    setPomeToBiodigester(log.pome_to_biodigester?.toString() || '');
-    setTemperature(log.temperature?.toString() || '');
-    setVolumetry(log.volumetry?.toString() || '');
-    setVolumetryUnit(log.volumetry_unit || 'L');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleCancelEdit = () => {
-    resetForm();
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (!ph) {
+      setError('Por favor digite la medición de pH.');
+      return;
+    }
 
     const isOilTank = tank === 'TK2';
 
@@ -199,16 +153,14 @@ export default function Effluents() {
 
     try {
       const newLogObj: Omit<EffluentLog, 'id' | 'created_at'> = {
-        date: new Date(date).toISOString(),
+        date: new Date(date + 'T00:00:00') as any,
         tank,
         oil_level: isOilTank ? Number(oilLevel) : undefined,
         recovered_oil: isOilTank && recoveredOil ? Number(recoveredOil) : undefined,
-        ph: ph ? Number(ph) : undefined,
-        temperature: temperature ? Number(temperature) : undefined,
-        volumetry: volumetry ? Number(volumetry) : undefined,
-        volumetry_unit: volumetry ? volumetryUnit : undefined,
+        ph: Number(ph),
         comments,
         attached_doc_url: attachedDocUrl || undefined,
+        attached_doc_name: attachedDocName || undefined,
         created_by: user?.id,
         // POME field values
         pome_input: !isOilTank && pomeInput ? Number(pomeInput) : undefined,
@@ -217,21 +169,30 @@ export default function Effluents() {
         pome_to_biodigester: !isOilTank && sentToBiodigester && pomeToBiodigester ? Number(pomeToBiodigester) : undefined,
       };
 
-      const { error: dbError } = editingLogId
-        ? await supabase
-            .from('effluents_logs')
-            .update(newLogObj)
-            .eq('id', editingLogId)
-        : await supabase
-            .from('effluents_logs')
-            .insert([newLogObj]);
+      const { error: insertError } = await supabase
+        .from('effluents_logs')
+        .insert([newLogObj])
+        .select();
 
-      if (dbError) {
-        throw new Error(dbError.message);
+      if (insertError) {
+        throw new Error(insertError.message);
       }
 
-      setSuccess(editingLogId ? '¡Registro actualizado con éxito!' : '¡Registro de efluentes ingresado con absoluto éxito!');
-      resetForm();
+      setSuccess('¡Registro de efluentes ingresado con absoluto éxito!');
+      
+      // Clear Form state
+      setOilLevel('');
+      setRecoveredOil('');
+      setPH('');
+      setComments('');
+      setAttachedDocUrl('');
+      setAttachedDocName('');
+      setPomeInput('');
+      setSentToBiodigester(false);
+      setBiodigesterDestination('BD1');
+      setPomeToBiodigester('');
+
+      // Refresh list
       fetchLogs();
     } catch (err: any) {
       console.error(err);
@@ -281,7 +242,7 @@ export default function Effluents() {
         {/* Registration Form */}
         <div className="dash-card p-6 lg:col-span-1 self-start">
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <Plus className="w-5 h-5 text-[#00c5dc]" /> {editingLogId ? 'Editar Lectura Existente' : 'Registrar Nueva Lectura'}
+            <Plus className="w-5 h-5 text-[#00c5dc]" /> Registrar Nueva Lectura
           </h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -411,53 +372,18 @@ export default function Effluents() {
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Potencial de Hidrógeno (pH) <span className="text-slate-500 font-normal">(Opcional)</span></label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Potencial de Hidrógeno (pH)</label>
               <input
                 type="number"
                 step="0.1"
                 min="0"
                 max="14"
+                required
                 placeholder="pH recomendado: 6.5 - 8.5"
                 value={ph}
                 onChange={(e) => setPH(e.target.value)}
                 className="input-field"
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Temperatura (°C)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  placeholder="Ej, 35.5"
-                  value={temperature}
-                  onChange={(e) => setTemperature(e.target.value)}
-                  className="input-field w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Volumetría</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Volumen"
-                    value={volumetry}
-                    onChange={(e) => setVolumetry(e.target.value)}
-                    className="input-field flex-1 min-w-0"
-                  />
-                  <select
-                    value={volumetryUnit}
-                    onChange={(e) => setVolumetryUnit(e.target.value)}
-                    className="cursor-pointer w-auto font-semibold text-xs px-1 bg-slate-950 border border-slate-700 text-slate-300 rounded"
-                  >
-                    <option value="L">L</option>
-                    <option value="m3">m³</option>
-                    <option value="dm3">dm³</option>
-                  </select>
-                </div>
-              </div>
             </div>
 
             <div>
@@ -528,18 +454,8 @@ export default function Effluents() {
               disabled={uploading}
               className="w-full bg-[#00c5dc] hover:bg-[#00c5dc]/90 text-slate-950 font-bold py-2.5 rounded-lg text-xs tracking-wider transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40"
             >
-              {uploading ? 'Codificando adjunto...' : editingLogId ? 'Actualizar Registro' : 'Guardar en Base de Datos'}
+              {uploading ? 'Codificando adjunto...' : 'Guardar en Base de Datos'}
             </button>
-
-            {editingLogId && (
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="mt-2 w-full bg-slate-700 hover:bg-slate-600 text-slate-100 font-semibold py-2 rounded-lg text-xs tracking-wider transition-all hover:scale-[1.01] active:scale-95"
-              >
-                Cancelar edición
-              </button>
-            )}
           </form>
         </div>
 
@@ -597,8 +513,6 @@ export default function Effluents() {
                       <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">POME Ingreso (m³)</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Filtro / Biodigester</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">pH</th>
-                      <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Temp (°C)</th>
-                      <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Volumetría</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Obs / Adjuntos</th>
                       <th className="px-4 py-3 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">Acción</th>
                     </tr>
@@ -657,26 +571,12 @@ export default function Effluents() {
                               {log.ph}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-xs font-mono text-slate-300">
-                            {log.temperature !== undefined && log.temperature !== null ? (
-                              <span>{log.temperature}°C</span>
-                            ) : (
-                              <span className="text-slate-600 italic">-</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-xs font-mono text-slate-300">
-                            {log.volumetry !== undefined && log.volumetry !== null ? (
-                              <span>{log.volumetry} {log.volumetry_unit}</span>
-                            ) : (
-                              <span className="text-slate-600 italic">-</span>
-                            )}
-                          </td>
                           <td className="px-4 py-3 text-xs text-slate-400 max-w-[150px]">
                             <div className="truncate" title={log.comments}>{log.comments || 'Sin observaciones'}</div>
                             {log.attached_doc_url ? (
                               <a
                                 href={log.attached_doc_url}
-                                download="evidencia.pdf"
+                                download={log.attached_doc_name || 'evidencia.pdf'}
                                 className="inline-flex items-center gap-1 text-[#00c5dc] hover:underline mt-1 text-[10px]"
                               >
                                 <FileText className="w-3.5 h-3.5" /> Ver Adjunto <ExternalLink className="w-2.5 h-2.5" />
@@ -684,22 +584,12 @@ export default function Effluents() {
                             ) : null}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <div className="inline-flex items-center gap-1 justify-center">
-                              <button
-                                type="button"
-                                onClick={() => handleEdit(log)}
-                                className="text-slate-300 hover:text-[#00c5dc] p-1 rounded hover:bg-slate-700/30 transition-all active:scale-90"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => log.id && handleDelete(log.id)}
-                                className="text-red-400 hover:text-white p-1 rounded hover:bg-red-500/15 transition-all active:scale-90"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => log.id && handleDelete(log.id)}
+                              className="text-red-400 hover:text-white p-1 rounded hover:bg-red-500/15 transition-all active:scale-90"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </td>
                         </tr>
                       );
@@ -711,6 +601,9 @@ export default function Effluents() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
     </div>
   );
 }
