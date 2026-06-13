@@ -27,15 +27,13 @@ export default function Effluents() {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Form State
-  const [date, setDate] = useState(new Date().toISOString().substring(0, 10));
-  const [tank, setTank] = useState('TK1');
-  const [oilLevel, setOilLevel] = useState('');
-  const [recoveredOil, setRecoveredOil] = useState('');
-  const [ph, setPH] = useState('');
-  const [comments, setComments] = useState('');
-  const [attachedDocUrl, setAttachedDocUrl] = useState('');
-  const [attachedDocName, setAttachedDocName] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
 
   // New POME & Biodigester fields
   const [pomeInput, setPomeInput] = useState('');
