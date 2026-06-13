@@ -126,9 +126,6 @@ CREATE TABLE IF NOT EXISTS public.effluents_logs (
   oil_level numeric,
   recovered_oil numeric,
   ph numeric,
-  temperature numeric,
-  volumetry numeric,
-  volumetry_unit text,
   comments text,
   attached_doc_url text,
   attached_doc_name text,
@@ -145,10 +142,6 @@ ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS pome_input numeric;
 ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS sent_to_biodigester boolean DEFAULT false;
 ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS biodigester_destination text;
 ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS pome_to_biodigester numeric;
-ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS temperature numeric;
-ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS volumetry numeric;
-ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS volumetry_unit text;
-ALTER TABLE public.effluents_logs ADD COLUMN IF NOT EXISTS attached_doc_name text;
 
 ALTER TABLE public.effluents_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo a autenticados en effluents" ON public.effluents_logs;
@@ -203,6 +196,7 @@ CREATE TABLE IF NOT EXISTS public.sustainability_indicators (
   organic_waste numeric,
   hazardous_waste numeric,
   recyclable_waste numeric,
+  ordinary_waste numeric,
   created_by uuid references public.profiles(id),
   created_at timestamp with time zone default now()
 );
@@ -211,6 +205,7 @@ CREATE TABLE IF NOT EXISTS public.sustainability_indicators (
 ALTER TABLE public.sustainability_indicators ADD COLUMN IF NOT EXISTS organic_waste numeric;
 ALTER TABLE public.sustainability_indicators ADD COLUMN IF NOT EXISTS hazardous_waste numeric;
 ALTER TABLE public.sustainability_indicators ADD COLUMN IF NOT EXISTS recyclable_waste numeric;
+ALTER TABLE public.sustainability_indicators ADD COLUMN IF NOT EXISTS ordinary_waste numeric;
 
 ALTER TABLE public.sustainability_indicators ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo a autenticados en sustainability_indicators" ON public.sustainability_indicators;
