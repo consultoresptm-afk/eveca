@@ -10,6 +10,8 @@ import GreenAreas from './pages/GreenAreas';
 import Environmental from './pages/Environmental';
 import Setup from './pages/Setup';
 import Admin from './pages/Admin';
+import ControlAsistencia from './pages/ControlAsistencia';
+import PanelJefe from './pages/PanelJefe';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -54,6 +56,8 @@ export default function App() {
             <Route path="gestion-ambiental" element={<Environmental />} />
             <Route path="setup" element={<Setup />} />
             <Route path="administracion" element={<Admin />} />
+            <Route path="control-asistencia" element={<ControlAsistencia />} />
+            <Route path="panel-jefe" element={<PanelJefe />} />
           </Route>
 
           {/* Catch-all redirect */}
