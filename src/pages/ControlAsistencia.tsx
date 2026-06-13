@@ -1,6 +1,6 @@
 // Ubicar en: src/pages/ControlAsistencia.tsx
 // Componente React para registrar entrada/salida con evidencia (foto) y observaciones.
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import { uploadEvidence, saveAttendanceRecord, AttendanceType } from '../lib/asistencia';
 
@@ -76,6 +76,10 @@ export const ControlAsistencia: FC = () => {
         setMessage('Registro guardado correctamente');
         setFile(null);
         setObservaciones('');
+        // Notificar a otros componentes/pestañas que hay cambios
+        try {
+          window.dispatchEvent(new Event('attendance:changed'));
+        } catch {}
       } else {
         setMessage('Error al guardar el registro');
       }
@@ -86,6 +90,23 @@ export const ControlAsistencia: FC = () => {
       setLoading(false);
     }
   }
+
+  // Persistir selección y observaciones para que no se pierdan al recargar
+  useEffect(() => {
+    try {
+      const savedCed = localStorage.getItem('controlAsistencia:selectedCedula');
+      const savedObs = localStorage.getItem('controlAsistencia:observaciones');
+      if (savedCed) setSelectedCedula(savedCed);
+      if (savedObs) setObservaciones(savedObs);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('controlAsistencia:selectedCedula', selectedCedula);
+      localStorage.setItem('controlAsistencia:observaciones', observaciones);
+    } catch {}
+  }, [selectedCedula, observaciones]);
 
   return (
     <div className="p-4 max-w-md mx-auto bg-white rounded-lg shadow-md">

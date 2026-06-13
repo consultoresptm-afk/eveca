@@ -73,13 +73,28 @@ export async function saveAttendanceRecord(record: AttendanceRecord): Promise<At
 /** Recupera los registros de una fecha (ISO YYYY-MM-DD) o del día actual si no se pasa fecha. */
 export async function getRecordsByDate(dateISO?: string): Promise<AttendanceRecord[]> {
   try {
-    // Construir rango de fechas en ISO para filtrar por created_at
-    const date = dateISO ? new Date(dateISO) : new Date();
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    const start = `${yyyy}-${mm}-${dd}T00:00:00Z`;
-    const end = `${yyyy}-${mm}-${dd}T23:59:59Z`;
+    // Construir rango de fechas en ISO para filtrar por created_at.
+    // Usar objetos Date con zona local y luego convertir a ISO para
+    // obtener el rango UTC correcto asociado al día local seleccionado.
+    const base = dateISO
+      ? // dateISO esperado en formato YYYY-MM-DD o ISO; descomponemos para evitar diferencias de parsing
+        (() => {
+          const parts = dateISO.split('T')[0].split('-').map((p) => parseInt(p, 10));
+          if (parts.length === 3 && parts.every((n) => !Number.isNaN(n))) {
+            const [y, m, d] = parts;
+            return new Date(y, m - 1, d);
+          }
+          return new Date(dateISO);
+        })()
+      : new Date();
+
+    const yyyy = base.getFullYear();
+    const mm = base.getMonth(); // 0-based
+    const dd = base.getDate();
+    const startDate = new Date(yyyy, mm, dd, 0, 0, 0, 0);
+    const endDate = new Date(yyyy, mm, dd, 23, 59, 59, 999);
+    const start = startDate.toISOString();
+    const end = endDate.toISOString();
 
     if (typeof supabase === 'undefined' || !supabase) {
       // En simulación retornamos vacío

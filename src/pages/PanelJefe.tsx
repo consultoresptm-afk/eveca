@@ -20,7 +20,13 @@ export const PanelJefe: FC = () => {
     void load();
     // Para auditoría en tiempo real podríamos usar polling o websockets.
     const iv = setInterval(() => void load(), 30_000);
-    return () => clearInterval(iv);
+    // También escuchamos eventos de actualización emitidos por el formulario.
+    const handler = () => void load();
+    window.addEventListener('attendance:changed', handler);
+    return () => {
+      clearInterval(iv);
+      window.removeEventListener('attendance:changed', handler);
+    };
   }, []);
 
   function formatTime(iso?: string) {
