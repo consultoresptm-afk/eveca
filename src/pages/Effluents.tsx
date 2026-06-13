@@ -604,6 +604,3 @@ export default function Effluents() {
     </div>
   );
 }
-    </div>
-  );
-}
